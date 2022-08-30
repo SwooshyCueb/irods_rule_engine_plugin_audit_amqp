@@ -361,7 +361,7 @@ irods::error exec_rule(
 
         json_obj["rule_name"] = _rn;
 
-        for( const auto itr : _ps ) {
+        for( const auto &itr : _ps ) {
             // The BytesBuf parameter should not be serialized because this commonly contains
             // the entirety of the contents of files. These could be very big and cause the
             // message broker to explode.
@@ -381,7 +381,7 @@ irods::error exec_rule(
                  continue;
             }
 
-            for( const auto elem : param ) {
+            for( const auto &elem : param ) {
 
                 size_t ctr = insert_arg_into_counter_map(arg_type_map, elem.first);
                 std::stringstream ctr_str;
