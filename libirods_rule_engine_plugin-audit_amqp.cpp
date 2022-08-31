@@ -6,6 +6,7 @@
 #undef LIST
 
 // stl includes
+#include <cstdint>
 #include <iostream>
 #include <sstream>
 #include <vector>
@@ -32,6 +33,14 @@
 #include <proton/messaging_handler.hpp>
 #include <proton/tracker.hpp>
 #include <proton/sender.hpp>
+
+#if __cpp_lib_chrono >= 201907
+// use utc_clock if it's implemented (for leap seconds)
+using ts_clock = std::chrono::utc_clock;
+#else
+// fallback to system_clock
+using ts_clock = std::chrono::system_clock;
+#endif
 
 static std::string audit_pep_regex_to_match = "audit_.*";
 static std::string audit_amqp_topic         = "irods_audit_messages";
@@ -183,9 +192,7 @@ irods::error start(irods::default_re_ctx&,const std::string& _instance_name) {
 
     nlohmann::json json_obj;
 
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    unsigned long time_ms = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+    auto time_ms = ts_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
 
     char host_name[MAX_NAME_LEN];
     gethostname( host_name, MAX_NAME_LEN );
@@ -252,9 +259,7 @@ irods::error stop(irods::default_re_ctx&,const std::string& _instance_name) {
     std::string log_file;
 
     try {
-        struct timeval tv;
-        gettimeofday(&tv, NULL);
-        unsigned long time_ms = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+        auto time_ms = ts_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
         json_obj["time_stamp"] = std::to_string(time_ms);
 
         char host_name[MAX_NAME_LEN];
@@ -344,9 +349,7 @@ irods::error exec_rule(
     std::string log_file;
 
     try {
-        struct timeval tv;
-        gettimeofday(&tv, NULL);
-        unsigned long time_ms = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+        auto time_ms = ts_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
         json_obj["time_stamp"] = std::to_string(time_ms);
 
         char host_name[MAX_NAME_LEN];
