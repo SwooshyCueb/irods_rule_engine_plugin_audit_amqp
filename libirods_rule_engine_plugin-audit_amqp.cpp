@@ -6,6 +6,7 @@
 #undef LIST
 
 // stl includes
+#include <cstdint>
 #include <iostream>
 #include <sstream>
 #include <vector>
@@ -32,6 +33,14 @@
 #include <proton/tracker.hpp>
 #include <proton/sender.hpp>
 
+#if __cpp_lib_chrono >= 201907
+// use utc_clock if it's implemented (for leap seconds)
+using ts_clock = std::chrono::utc_clock;
+#else
+// fallback to system_clock
+using ts_clock = std::chrono::system_clock;
+#endif
+
 // NOLINTBEGIN(cert-err58-cpp, cppcoreguidelines-avoid-non-const-global-variables)
 static std::string audit_pep_regex_to_match = "audit_.*";
 static std::string audit_amqp_topic = "irods_audit_messages";
@@ -42,7 +51,6 @@ static bool test_mode = false;
 static std::ofstream log_file_ofstream;
 
 static std::mutex audit_plugin_mutex;
-
 // NOLINTEND(cert-err58-cpp, cppcoreguidelines-avoid-non-const-global-variables)
 
 // See qpid-cpp docs (https://qpid.apache.org/releases/qpid-proton-0.37.0/proton/cpp/api/simple_send_8cpp-example.html)
@@ -187,10 +195,6 @@ auto start([[maybe_unused]] irods::default_re_ctx& re_ctx, const std::string& _i
 
 	nlohmann::json json_obj;
 
-	struct timeval tv;
-	gettimeofday(&tv, NULL);
-	unsigned long time_ms = tv.tv_sec * 1000 + tv.tv_usec / 1000;
-
 	char host_name[MAX_NAME_LEN];
 	gethostname(host_name, MAX_NAME_LEN);
 
@@ -200,7 +204,9 @@ auto start([[maybe_unused]] irods::default_re_ctx& re_ctx, const std::string& _i
 	std::string log_file;
 
 	try {
+		auto time_ms = ts_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
 		json_obj["time_stamp"] = std::to_string(time_ms);
+
 		insert_or_parse_as_bin(json_obj, "hostname", host_name);
 		json_obj["pid"] = std::to_string(pid);
 		json_obj["action"] = "START";
@@ -250,9 +256,7 @@ auto stop([[maybe_unused]] irods::default_re_ctx& re_ctx, [[maybe_unused]] const
 	std::string log_file;
 
 	try {
-		struct timeval tv;
-		gettimeofday(&tv, NULL);
-		unsigned long time_ms = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+		auto time_ms = ts_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
 		json_obj["time_stamp"] = std::to_string(time_ms);
 
 		char host_name[MAX_NAME_LEN];
@@ -341,9 +345,7 @@ auto exec_rule(
 	std::string log_file;
 
 	try {
-		struct timeval tv;
-		gettimeofday(&tv, NULL);
-		unsigned long time_ms = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+		auto time_ms = ts_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
 		json_obj["time_stamp"] = std::to_string(time_ms);
 
 		char host_name[MAX_NAME_LEN];
