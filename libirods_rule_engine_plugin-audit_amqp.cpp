@@ -208,7 +208,7 @@ auto start([[maybe_unused]] irods::default_re_ctx& re_ctx, const std::string& _i
 		json_obj["@timestamp"] = time_ms;
 
 		insert_or_parse_as_bin(json_obj, "hostname", host_name);
-		json_obj["pid"] = std::to_string(pid);
+		json_obj["pid"] = pid;
 		json_obj["action"] = "START";
 
 		if (test_mode) {
@@ -264,7 +264,7 @@ auto stop([[maybe_unused]] irods::default_re_ctx& re_ctx, [[maybe_unused]] const
 		json_obj["hostname"] = host_name;
 
 		pid_t pid = getpid();
-		json_obj["pid"] = std::to_string(pid);
+		json_obj["pid"] = pid;
 
 		json_obj["action"] = "STOP";
 
@@ -352,8 +352,7 @@ auto exec_rule(
 		gethostname(host_name, MAX_NAME_LEN);
 		insert_or_parse_as_bin(json_obj, "hostname", host_name);
 
-		pid_t pid = getpid();
-		json_obj["pid"] = std::to_string(pid);
+		json_obj["pid"] = getpid();
 
 		json_obj["rule_name"] = _rn;
 
