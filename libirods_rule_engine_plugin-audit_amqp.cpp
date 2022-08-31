@@ -20,6 +20,7 @@
 
 // boost includes
 #include <boost/any.hpp>
+#include <boost/config.hpp>
 #include <boost/regex.hpp>
 #include <boost/exception/all.hpp>
 #include <boost/algorithm/string.hpp>
@@ -69,7 +70,7 @@ class send_handler : public proton::messaging_handler {
         }
 }; // class send_handler
 
-void insert_or_parse_as_bin (
+static BOOST_FORCEINLINE void insert_or_parse_as_bin (
     nlohmann::json& json_obj,
     const std::string& key,
     const std::string& val
@@ -93,7 +94,7 @@ void insert_or_parse_as_bin (
 
 // Insert the key arg into arg_map and storing the number of insertions of arg as the value.
 // The value (number of insertions) is returned.
-int insert_arg_into_counter_map(std::map<std::string, int>& arg_map, const std::string& arg) {
+static BOOST_FORCEINLINE int insert_arg_into_counter_map(std::map<std::string, int>& arg_map, const std::string& arg) {
     std::map<std::string, int>::iterator iter = arg_map.find(arg);
     if (iter == arg_map.end()) {
         arg_map.insert(std::make_pair(arg, 1));
