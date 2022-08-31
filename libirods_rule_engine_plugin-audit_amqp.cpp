@@ -203,7 +203,7 @@ irods::error start(irods::default_re_ctx&,const std::string& _instance_name) {
     std::string log_file;
 
     try {
-        json_obj["time_stamp"] = std::to_string(time_ms);
+        json_obj["@timestamp"] = time_ms;
         insert_or_parse_as_bin(
             json_obj,
             "hostname",
@@ -260,7 +260,7 @@ irods::error stop(irods::default_re_ctx&,const std::string& _instance_name) {
 
     try {
         auto time_ms = ts_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
-        json_obj["time_stamp"] = std::to_string(time_ms);
+        json_obj["@timestamp"] = time_ms;
 
         char host_name[MAX_NAME_LEN];
         gethostname( host_name, MAX_NAME_LEN );
@@ -350,7 +350,7 @@ irods::error exec_rule(
 
     try {
         auto time_ms = ts_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
-        json_obj["time_stamp"] = std::to_string(time_ms);
+        json_obj["@timestamp"] = time_ms;
 
         char host_name[MAX_NAME_LEN];
         gethostname( host_name, MAX_NAME_LEN );
