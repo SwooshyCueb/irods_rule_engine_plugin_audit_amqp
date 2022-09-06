@@ -1,4 +1,5 @@
 // irods includes
+#include <irods/irods_logger.hpp>
 #include <irods/irods_re_plugin.hpp>
 #include <irods/irods_re_serialization.hpp>
 #include <irods/irods_server_properties.hpp>
@@ -40,6 +41,10 @@ using ts_clock = std::chrono::utc_clock;
 // fallback to system_clock
 using ts_clock = std::chrono::system_clock;
 #endif
+
+using log_re = irods::experimental::log::rule_engine;
+
+static const char* const rule_engine_name = "audit_amqp";
 
 // NOLINTBEGIN(cert-err58-cpp, cppcoreguidelines-avoid-non-const-global-variables)
 static std::string audit_pep_regex_to_match = "audit_.*";
@@ -92,19 +97,25 @@ class send_handler : public proton::messaging_handler
 }; // class send_handler
 
 static BOOST_FORCEINLINE void
-insert_or_parse_as_bin(nlohmann::json& json_obj, const std::string& key, const std::string& val)
+insert_or_parse_as_bin(
+	nlohmann::json& json_obj,
+	const std::string& key,
+	const std::string& val,
+	const std::uint64_t& time_ms)
 {
 	try {
 		json_obj[key] = nlohmann::json::parse("\"" + val + "\"");
 	}
 	catch (const nlohmann::json::exception&) {
 		json_obj[key] = nlohmann::json::binary(std::vector<std::uint8_t>(val.begin(), val.end()));
-		irods::log(
-			LOG_DEBUG,
-			fmt::format(
-				"[AUDIT] - Message with timestamp:[{}] had invalid UTF-8 in key:[{}] and was stored as binary.",
-				json_obj.at("@timestamp").get_ref<const std::uint64_t&>(),
-				key)); // irods::log
+		// clang-format off
+		log_re::debug({
+			{"rule_engine_plugin", rule_engine_name},
+			{"log_message", "Invalid UTF-8 encountered when adding element to message; added as binary"},
+			{"element_key", key},
+			{"message_timestamp", std::to_string(time_ms)},
+		});
+		// clang-format on
 	}
 }
 
@@ -153,12 +164,13 @@ auto get_re_configs(const std::string& _instance_name) -> irods::error
 					}
 				}
 				else {
-					rodsLog(
-						LOG_DEBUG,
-						"%s - using default configuration: regex - %s, topic - %s, location - %s",
-						audit_pep_regex_to_match.c_str(),
-						audit_amqp_topic.c_str(),
-						audit_amqp_location.c_str());
+					// clang-format off
+					log_re::debug({
+						{"rule_engine_plugin", rule_engine_name},
+						{"log_message", "Using default plugin configuration"},
+						{"instance_name", _instance_name},
+					});
+					// clang-format on
 				}
 
 				return SUCCESS();
@@ -169,19 +181,16 @@ auto get_re_configs(const std::string& _instance_name) -> irods::error
 		return ERROR(KEY_NOT_FOUND, e.what());
 	}
 	catch (const nlohmann::json::exception& e) {
-		return ERROR(SYS_LIBRARY_ERROR, fmt::format("[{}:{}] - [{}]", __func__, __LINE__, e.what()));
+		return ERROR(SYS_LIBRARY_ERROR, e.what());
 	}
 	catch (const std::exception& e) {
-		return ERROR(SYS_INTERNAL_ERR, fmt::format("[{}:{}] - [{}]", __func__, __LINE__, e.what()));
+		return ERROR(SYS_INTERNAL_ERR, e.what());
 	}
 	catch (...) {
-		return ERROR(SYS_UNKNOWN_ERROR, fmt::format("[{}:{}] - an unknown error occurred", __func__, __LINE__));
+		return ERROR(SYS_UNKNOWN_ERROR, "an unknown error occurred");
 	}
 
-	std::stringstream msg;
-	msg << "failed to find configuration for audit_amqp plugin [" << _instance_name << "]";
-	rodsLog(LOG_ERROR, "%s", msg.str().c_str());
-	return ERROR(SYS_INVALID_INPUT_PARAM, msg.str());
+	return ERROR(SYS_INVALID_INPUT_PARAM, "failed to find plugin configuration");
 }
 
 auto start([[maybe_unused]] irods::default_re_ctx& re_ctx, const std::string& _instance_name) -> irods::error
@@ -190,7 +199,14 @@ auto start([[maybe_unused]] irods::default_re_ctx& re_ctx, const std::string& _i
 
 	irods::error ret = get_re_configs(_instance_name);
 	if (!ret.ok()) {
-		irods::log(PASS(ret));
+		// clang-format off
+		log_re::error({
+			{"rule_engine_plugin", rule_engine_name},
+			{"log_message", "Error loading plugin configuration"},
+			{"instance_name", _instance_name},
+			{"error_result", ret.result()},
+		});
+		// clang-format on
 	}
 
 	nlohmann::json json_obj;
@@ -207,30 +223,50 @@ auto start([[maybe_unused]] irods::default_re_ctx& re_ctx, const std::string& _i
 		std::uint64_t time_ms = ts_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
 		json_obj["@timestamp"] = time_ms;
 
-		insert_or_parse_as_bin(json_obj, "hostname", host_name);
+		insert_or_parse_as_bin(json_obj, "hostname", host_name, time_ms);
 		json_obj["pid"] = pid;
 		json_obj["action"] = "START";
 
 		if (test_mode) {
 			log_file = str(boost::format("%s/%06i.txt") % log_path_prefix % pid);
-			insert_or_parse_as_bin(json_obj, "log_file", log_file);
+			insert_or_parse_as_bin(json_obj, "log_file", log_file, time_ms);
 		}
 	}
 	catch (const irods::exception& e) {
-		rodsLog(LOG_NOTICE, e.client_display_what());
-		return ERROR(e.code(), fmt::format("[{}:{}] - [{}]", __func__, __LINE__, e.what()));
+		// clang-format off
+		log_re::info({
+			{"rule_engine_plugin", rule_engine_name},
+			{"log_message", "Caught iRODS exception"},
+			{"instance_name", _instance_name},
+			{"exception", e.what()},
+		});
+		// clang-format on
+		return ERROR(e.code(), e.what());
 	}
 	catch (const nlohmann::json::exception& e) {
-		const std::string msg = fmt::format("[{}:{}] - [{}]", __func__, __LINE__, e.what());
-		rodsLog(LOG_NOTICE, msg.data());
-		return ERROR(SYS_LIBRARY_ERROR, msg);
+		// clang-format off
+		log_re::info({
+			{"rule_engine_plugin", rule_engine_name},
+			{"log_message", "Caught nlohmann-json exception"},
+			{"instance_name", _instance_name},
+			{"exception", e.what()},
+		});
+		// clang-format on
+		return ERROR(SYS_LIBRARY_ERROR, e.what());
 	}
 	catch (const std::exception& e) {
-		rodsLog(LOG_NOTICE, e.what());
-		return ERROR(SYS_INTERNAL_ERR, fmt::format("[{}:{}] - [{}]", __func__, __LINE__, e.what()));
+		// clang-format off
+		log_re::info({
+			{"rule_engine_plugin", rule_engine_name},
+			{"log_message", "Caught exception"},
+			{"instance_name", _instance_name},
+			{"exception", e.what()},
+		});
+		// clang-format on
+		return ERROR(SYS_INTERNAL_ERR, e.what());
 	}
 	catch (...) {
-		return ERROR(SYS_UNKNOWN_ERROR, fmt::format("[{}:{}] - unknown error occurred", __func__, __LINE__));
+		return ERROR(SYS_UNKNOWN_ERROR, "an unknown error occurred");
 	}
 
 	msg_str = json_obj.dump();
@@ -273,20 +309,40 @@ auto stop([[maybe_unused]] irods::default_re_ctx& re_ctx, [[maybe_unused]] const
 		}
 	}
 	catch (const irods::exception& e) {
-		rodsLog(LOG_NOTICE, e.client_display_what());
-		return ERROR(e.code(), fmt::format("[{}:{}] - [{}]", __func__, __LINE__, e.what()));
+		// clang-format off
+		log_re::info({
+			{"rule_engine_plugin", rule_engine_name},
+			{"log_message", "Caught iRODS exception"},
+			{"instance_name", _instance_name},
+			{"exception", e.what()},
+		});
+		// clang-format on
+		return ERROR(e.code(), e.what());
 	}
 	catch (const nlohmann::json::exception& e) {
-		const std::string msg = fmt::format("[{}:{}] - [{}]", __func__, __LINE__, e.what());
-		rodsLog(LOG_NOTICE, msg.data());
-		return ERROR(SYS_LIBRARY_ERROR, msg);
+		// clang-format off
+		log_re::info({
+			{"rule_engine_plugin", rule_engine_name},
+			{"log_message", "Caught nlohmann-json exception"},
+			{"instance_name", _instance_name},
+			{"exception", e.what()},
+		});
+		// clang-format on
+		return ERROR(SYS_LIBRARY_ERROR, e.what());
 	}
 	catch (const std::exception& e) {
-		rodsLog(LOG_NOTICE, e.what());
-		return ERROR(SYS_INTERNAL_ERR, fmt::format("[{}:{}] - [{}]", __func__, __LINE__, e.what()));
+		// clang-format off
+		log_re::info({
+			{"rule_engine_plugin", rule_engine_name},
+			{"log_message", "Caught exception"},
+			{"instance_name", _instance_name},
+			{"exception", e.what()},
+		});
+		// clang-format on
+		return ERROR(SYS_INTERNAL_ERR, e.what());
 	}
 	catch (...) {
-		return ERROR(SYS_UNKNOWN_ERROR, fmt::format("[{}:{}] - unknown error occurred", __func__, __LINE__));
+		return ERROR(SYS_UNKNOWN_ERROR, "an unknown error occurred");
 	}
 
 	msg_str = json_obj.dump();
@@ -350,7 +406,7 @@ auto exec_rule(
 
 		char host_name[MAX_NAME_LEN];
 		gethostname(host_name, MAX_NAME_LEN);
-		insert_or_parse_as_bin(json_obj, "hostname", host_name);
+		insert_or_parse_as_bin(json_obj, "hostname", host_name, time_ms);
 
 		json_obj["pid"] = getpid();
 
@@ -361,7 +417,13 @@ auto exec_rule(
 			// the entirety of the contents of files. These could be very big and cause the
 			// message broker to explode.
 			if (std::type_index(typeid(BytesBuf*)) == std::type_index(itr.type())) {
-				rodsLog(LOG_DEBUG9, "[{}:{}] - skipping serialization of BytesBuf parameter", __FILE__, __LINE__);
+				// clang-format off
+				log_re::trace({
+					{"rule_engine_plugin", rule_engine_name},
+					{"log_message", "skipping serialization of BytesBuf parameter"},
+					{"rule_name", _rn},
+				});
+				// clang-format on
 				continue;
 			}
 
@@ -369,7 +431,14 @@ auto exec_rule(
 			irods::re_serialization::serialized_parameter_t param;
 			irods::error ret = irods::re_serialization::serialize_parameter(itr, param);
 			if (!ret.ok()) {
-				rodsLog(LOG_ERROR, "unsupported argument for calling re rules from the rule language");
+				// clang-format off
+				log_re::error({
+					{"rule_engine_plugin", rule_engine_name},
+					{"log_message", "unsupported argument for calling re rules from the rule language"},
+					{"rule_name", _rn},
+					{"error_result", ret.result()},
+				});
+				// clang-format on
 				continue;
 			}
 
@@ -384,7 +453,7 @@ auto exec_rule(
 					key += ctr_str.str();
 				}
 
-				insert_or_parse_as_bin(json_obj, key, elem.second);
+				insert_or_parse_as_bin(json_obj, key, elem.second, time_ms);
 
 				++ctr;
 				ctr_str.clear();
@@ -392,20 +461,40 @@ auto exec_rule(
 		}
 	}
 	catch (const irods::exception& e) {
-		rodsLog(LOG_NOTICE, e.client_display_what());
-		return ERROR(e.code(), fmt::format("[{}:{}] - [{}]", __func__, __LINE__, e.what()));
+		// clang-format off
+		log_re::info({
+			{"rule_engine_plugin", rule_engine_name},
+			{"log_message", "Caught iRODS exception"},
+			{"rule_name", _rn},
+			{"exception", e.what()},
+		});
+		// clang-format on
+		return ERROR(e.code(), e.what());
 	}
 	catch (const nlohmann::json::exception& e) {
-		const std::string msg = fmt::format("[{}:{}] - [{}]", __func__, __LINE__, e.what());
-		rodsLog(LOG_NOTICE, msg.data());
-		return ERROR(SYS_LIBRARY_ERROR, msg);
+		// clang-format off
+		log_re::info({
+			{"rule_engine_plugin", rule_engine_name},
+			{"log_message", "Caught nlohmann-json exception"},
+			{"rule_name", _rn},
+			{"exception", e.what()},
+		});
+		// clang-format on
+		return ERROR(SYS_LIBRARY_ERROR, e.what());
 	}
 	catch (const std::exception& e) {
-		rodsLog(LOG_NOTICE, e.what());
-		return ERROR(SYS_INTERNAL_ERR, fmt::format("[{}:{}] - [{}]", __func__, __LINE__, e.what()));
+		// clang-format off
+		log_re::info({
+			{"rule_engine_plugin", rule_engine_name},
+			{"log_message", "Caught exception"},
+			{"rule_name", _rn},
+			{"exception", e.what()},
+		});
+		// clang-format on
+		return ERROR(SYS_INTERNAL_ERR, e.what());
 	}
 	catch (...) {
-		return ERROR(SYS_UNKNOWN_ERROR, fmt::format("[{}:{}] - unknown error occurred", __func__, __LINE__));
+		return ERROR(SYS_UNKNOWN_ERROR, "an unknown error occurred");
 	}
 
 	msg_str = json_obj.dump();
