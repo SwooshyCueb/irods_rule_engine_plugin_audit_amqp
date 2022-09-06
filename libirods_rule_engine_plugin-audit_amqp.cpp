@@ -57,6 +57,8 @@ namespace
 	std::string audit_pep_regex_to_match{"audit_.*"};
 	std::string audit_amqp_topic{"irods_audit_messages"};
 	std::string audit_amqp_location{"localhost:5672"};
+	std::string audit_amqp_user;
+	std::string audit_amqp_password;
 	std::string audit_amqp_options;
 	std::string log_path_prefix{"/tmp"};
 	bool test_mode = false;
@@ -97,9 +99,16 @@ namespace
 	{
 	  public:
 		// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-		send_handler(const std::string& _message, const std::string& _location, const std::string& _topic)
+		send_handler(
+			const std::string& _message,
+			const std::string& _location,
+			const std::string& _topic,
+			const std::string& _user,
+			const std::string& _password)
 			: amqp_location(_location)
 			, amqp_topic(_topic)
+			, user(_user)
+			, password(_password)
 			, message(_message)
 			, message_sent(false)
 		{
@@ -108,6 +117,12 @@ namespace
 		void on_container_start(proton::container& container) override
 		{
 			proton::connection_options conn_opts;
+			if (!user.empty()) {
+				conn_opts.user(user);
+			}
+			if (!password.empty()) {
+				conn_opts.password(password);
+			}
 			container.open_sender(
 				fmt::format(FMT_COMPILE("{0:s}/{1:s}"), amqp_location, amqp_topic),
 				conn_opts);
@@ -174,6 +189,8 @@ namespace
 	  private:
 		const std::string& amqp_location;
 		const std::string& amqp_topic;
+		const std::string& user;
+		const std::string& password;
 		proton::message message;
 		bool message_sent;
 	}; // class send_handler
@@ -256,6 +273,24 @@ namespace
 						audit_pep_regex_to_match = plugin_spec_cfg.at("pep_regex_to_match").get<std::string>();
 						audit_amqp_topic = plugin_spec_cfg.at("amqp_topic").get<std::string>();
 						audit_amqp_location = plugin_spec_cfg.at("amqp_location").get<std::string>();
+
+						// amqp_user is optional
+						const auto amqp_user_cfg = plugin_spec_cfg.find("amqp_user");
+						if (amqp_user_cfg == plugin_spec_cfg.end()) {
+							audit_amqp_user.clear();
+						}
+						else {
+							audit_amqp_user = amqp_user_cfg->get<std::string>();
+						}
+
+						// amqp_password is optional
+						const auto amqp_password_cfg = plugin_spec_cfg.find("amqp_password");
+						if (amqp_password_cfg == plugin_spec_cfg.end()) {
+							audit_amqp_password.clear();
+						}
+						else {
+							audit_amqp_password = amqp_password_cfg->get<std::string>();
+						}
 
 						// amqp_options is optional
 						const auto amqp_options_cfg = plugin_spec_cfg.find("amqp_options");
@@ -366,8 +401,13 @@ namespace
 		}
 
 		msg_str = json_obj.dump();
-		send_handler s(msg_str, audit_amqp_location, audit_amqp_topic); // NOLINT(readability-identifier-length)
-		proton::container(s).run();
+		send_handler handler(
+			msg_str,
+			audit_amqp_location,
+			audit_amqp_topic,
+			audit_amqp_user,
+			audit_amqp_password);
+		proton::container(handler).run();
 
 		if (test_mode) {
 			log_file_ofstream.open(log_file);
@@ -421,8 +461,13 @@ namespace
 		}
 
 		msg_str = json_obj.dump();
-		send_handler s(msg_str, audit_amqp_location, audit_amqp_topic); // NOLINT(readability-identifier-length)
-		proton::container(s).run();
+		send_handler handler(
+			msg_str,
+			audit_amqp_location,
+			audit_amqp_topic,
+			audit_amqp_user,
+			audit_amqp_password);
+		proton::container(handler).run();
 
 		if (test_mode) {
 			log_file_ofstream << msg_str << std::endl;
@@ -551,8 +596,13 @@ namespace
 		}
 
 		msg_str = json_obj.dump();
-		send_handler s(msg_str, audit_amqp_location, audit_amqp_topic); // NOLINT(readability-identifier-length)
-		proton::container(s).run();
+		send_handler handler(
+			msg_str,
+			audit_amqp_location,
+			audit_amqp_topic,
+			audit_amqp_user,
+			audit_amqp_password);
+		proton::container(handler).run();
 
 		if (test_mode) {
 			log_file_ofstream << msg_str << std::endl;
