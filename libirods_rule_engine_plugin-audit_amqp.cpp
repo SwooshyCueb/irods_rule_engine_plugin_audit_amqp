@@ -104,6 +104,7 @@ namespace
 		void on_sendable(proton::sender& _sender) override
 		{
 			proton::message m(message); // NOLINT(readability-identifier-length)
+			m.content_type("application/json");
 			_sender.send(m);
 		}
 
