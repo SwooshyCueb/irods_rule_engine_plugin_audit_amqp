@@ -12,6 +12,7 @@
 #include <sstream>
 #include <vector>
 #include <string>
+#include <string_view>
 #include <chrono>
 #include <ctime>
 #include <map>
@@ -48,12 +49,19 @@ using log_re = irods::experimental::log::rule_engine;
 static const char* const rule_engine_name = "audit_amqp";
 
 // NOLINTBEGIN(cert-err58-cpp, cppcoreguidelines-avoid-non-const-global-variables)
-static std::string audit_pep_regex_to_match = "audit_.*";
-static std::string audit_amqp_topic = "irods_audit_messages";
-static std::string audit_amqp_location = "localhost:5672";
-static std::string audit_amqp_user;
-static std::string audit_amqp_password;
-static std::string audit_amqp_options;
+static const std::string_view default_pep_regex_to_match{"audit_.*"};
+static const std::string_view default_amqp_topic{"irods_audit_messages"};
+static const std::string_view default_amqp_location{"localhost:5672"};
+static const std::string_view default_amqp_user;
+static const std::string_view default_amqp_password;
+static const std::string_view default_amqp_options;
+
+static std::string audit_pep_regex_to_match{default_pep_regex_to_match};
+static std::string audit_amqp_topic{default_amqp_topic};
+static std::string audit_amqp_location{default_amqp_location};
+static std::string audit_amqp_user{default_amqp_user};
+static std::string audit_amqp_password{default_amqp_password};
+static std::string audit_amqp_options{default_amqp_options};
 
 static std::mutex audit_plugin_mutex;
 // NOLINTEND(cert-err58-cpp, cppcoreguidelines-avoid-non-const-global-variables)
@@ -167,7 +175,7 @@ auto get_re_configs(const std::string& _instance_name) -> irods::error
 					// amqp_user is optional
 					const auto amqp_user_cfg = plugin_spec_cfg.find("amqp_user");
 					if (amqp_user_cfg == plugin_spec_cfg.end()) {
-						audit_amqp_user.clear();
+						audit_amqp_user = default_amqp_user;
 					}
 					else {
 						audit_amqp_user = amqp_user_cfg->get<std::string>();
@@ -176,7 +184,7 @@ auto get_re_configs(const std::string& _instance_name) -> irods::error
 					// amqp_password is optional
 					const auto amqp_password_cfg = plugin_spec_cfg.find("amqp_password");
 					if (amqp_password_cfg == plugin_spec_cfg.end()) {
-						audit_amqp_password.clear();
+						audit_amqp_password = default_amqp_password;
 					}
 					else {
 						audit_amqp_password = amqp_password_cfg->get<std::string>();
@@ -185,13 +193,19 @@ auto get_re_configs(const std::string& _instance_name) -> irods::error
 					// amqp_options is optional
 					const auto amqp_options_cfg = plugin_spec_cfg.find("amqp_options");
 					if (amqp_options_cfg == plugin_spec_cfg.end()) {
-						audit_amqp_options.clear();
+						audit_amqp_options = default_amqp_options;
 					}
 					else {
 						audit_amqp_options = amqp_options_cfg->get<std::string>();
 					}
 				}
 				else {
+					audit_pep_regex_to_match = default_pep_regex_to_match;
+					audit_amqp_topic = default_amqp_topic;
+					audit_amqp_location = default_amqp_location;
+					audit_amqp_user = default_amqp_user;
+					audit_amqp_password = default_amqp_password;
+					audit_amqp_options = default_amqp_options;
 					// clang-format off
 					log_re::debug({
 						{"rule_engine_plugin", rule_engine_name},
