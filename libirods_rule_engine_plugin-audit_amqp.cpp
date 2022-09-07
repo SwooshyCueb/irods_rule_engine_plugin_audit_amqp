@@ -54,9 +54,6 @@ static std::string audit_amqp_location = "localhost:5672";
 static std::string audit_amqp_user;
 static std::string audit_amqp_password;
 static std::string audit_amqp_options;
-static std::string log_path_prefix = "/tmp";
-static bool test_mode = false;
-static std::ofstream log_file_ofstream;
 
 static std::mutex audit_plugin_mutex;
 // NOLINTEND(cert-err58-cpp, cppcoreguidelines-avoid-non-const-global-variables)
@@ -193,20 +190,6 @@ auto get_re_configs(const std::string& _instance_name) -> irods::error
 					else {
 						audit_amqp_options = amqp_options_cfg->get<std::string>();
 					}
-
-					// look for a test mode setting.  if it doesn't exist just keep test_mode at false.
-					// if test_mode = true and log_path_prefix isn't set just leave the default
-					const auto test_mode_cfg = plugin_spec_cfg.find("test_mode");
-					if (test_mode_cfg != plugin_spec_cfg.end()) {
-						const auto& test_mode_str = test_mode_cfg->get_ref<const std::string&>();
-						test_mode = boost::iequals(test_mode_str, "true");
-						if (test_mode) {
-							const auto log_path_prefix_cfg = plugin_spec_cfg.find("log_path_prefix");
-							if (log_path_prefix_cfg != plugin_spec_cfg.end()) {
-								log_path_prefix = log_path_prefix_cfg->get<std::string>();
-							}
-						}
-					}
 				}
 				else {
 					// clang-format off
@@ -270,11 +253,6 @@ auto start([[maybe_unused]] irods::default_re_ctx& re_ctx, const std::string& _i
 
 		json_obj["pid"] = pid;
 		json_obj["action"] = "START";
-
-		if (test_mode) {
-			log_file = str(boost::format("%s/%06i.txt") % log_path_prefix % pid);
-			insert_or_parse_as_bin(json_obj, "log_file", log_file, time_ms);
-		}
 	}
 	catch (const irods::exception& e) {
 		// clang-format off
@@ -321,11 +299,6 @@ auto start([[maybe_unused]] irods::default_re_ctx& re_ctx, const std::string& _i
 		audit_amqp_user,
 		audit_amqp_password);
 	proton::container(handler).run();
-
-	if (test_mode) {
-		log_file_ofstream.open(log_file);
-		log_file_ofstream << msg_str << std::endl;
-	}
 
 	return SUCCESS();
 }
@@ -351,10 +324,6 @@ auto stop([[maybe_unused]] irods::default_re_ctx& re_ctx, [[maybe_unused]] const
 		json_obj["pid"] = pid;
 
 		json_obj["action"] = "STOP";
-
-		if (test_mode) {
-			json_obj["log_file"] = str(boost::format("%s/%06i.txt") % log_path_prefix % pid);
-		}
 	}
 	catch (const irods::exception& e) {
 		// clang-format off
@@ -401,11 +370,6 @@ auto stop([[maybe_unused]] irods::default_re_ctx& re_ctx, [[maybe_unused]] const
 		audit_amqp_user,
 		audit_amqp_password);
 	proton::container(handler).run();
-
-	if (test_mode) {
-		log_file_ofstream << msg_str << std::endl;
-		log_file_ofstream.close();
-	}
 
 	return SUCCESS();
 }
@@ -557,10 +521,6 @@ auto exec_rule(
 		audit_amqp_user,
 		audit_amqp_password);
 	proton::container(handler).run();
-
-	if (test_mode) {
-		log_file_ofstream << msg_str << std::endl;
-	}
 
 	return err;
 }
