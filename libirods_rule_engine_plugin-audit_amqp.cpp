@@ -20,6 +20,7 @@
 
 // boost includes
 #include <boost/any.hpp>
+#include <boost/asio/ip/host_name.hpp>
 #include <boost/config.hpp>
 #include <boost/regex.hpp>
 #include <boost/exception/all.hpp>
@@ -255,9 +256,6 @@ auto start([[maybe_unused]] irods::default_re_ctx& re_ctx, const std::string& _i
 
 	nlohmann::json json_obj;
 
-	char host_name[MAX_NAME_LEN];
-	gethostname(host_name, MAX_NAME_LEN);
-
 	pid_t pid = getpid();
 
 	std::string msg_str;
@@ -267,7 +265,9 @@ auto start([[maybe_unused]] irods::default_re_ctx& re_ctx, const std::string& _i
 		std::uint64_t time_ms = ts_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
 		json_obj["@timestamp"] = time_ms;
 
-		insert_or_parse_as_bin(json_obj, "hostname", host_name, time_ms);
+		std::string host_name = boost::asio::ip::host_name();
+		json_obj["hostname"] = host_name;
+
 		json_obj["pid"] = pid;
 		json_obj["action"] = "START";
 
@@ -344,8 +344,7 @@ auto stop([[maybe_unused]] irods::default_re_ctx& re_ctx, [[maybe_unused]] const
 		std::uint64_t time_ms = ts_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
 		json_obj["@timestamp"] = time_ms;
 
-		char host_name[MAX_NAME_LEN];
-		gethostname(host_name, MAX_NAME_LEN);
+		std::string host_name = boost::asio::ip::host_name();
 		json_obj["hostname"] = host_name;
 
 		pid_t pid = getpid();
@@ -458,9 +457,8 @@ auto exec_rule(
 		std::uint64_t time_ms = ts_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
 		json_obj["@timestamp"] = time_ms;
 
-		char host_name[MAX_NAME_LEN];
-		gethostname(host_name, MAX_NAME_LEN);
-		insert_or_parse_as_bin(json_obj, "hostname", host_name, time_ms);
+		std::string host_name = boost::asio::ip::host_name();
+		json_obj["hostname"] = host_name;
 
 		json_obj["pid"] = getpid();
 
