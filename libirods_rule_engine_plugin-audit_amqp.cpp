@@ -19,6 +19,7 @@
 
 // boost includes
 #include <boost/any.hpp>
+#include <boost/asio/ip/host_name.hpp>
 #include <boost/config.hpp>
 #include <boost/regex.hpp>
 #include <boost/exception/all.hpp>
@@ -274,9 +275,6 @@ namespace
 
 		nlohmann::json json_obj;
 
-		char host_name[MAX_NAME_LEN];
-		gethostname(host_name, MAX_NAME_LEN);
-
 		std::string msg_str;
 		std::string log_file;
 
@@ -284,7 +282,7 @@ namespace
 			std::uint64_t time_ms = ts_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
 			json_obj["@timestamp"] = time_ms;
 
-			insert_or_parse_as_bin(json_obj, "hostname", host_name, time_ms);
+			json_obj["hostname"] = boost::asio::ip::host_name();
 
 			pid_t pid = getpid();
 			json_obj["pid"] = pid;
@@ -343,9 +341,7 @@ namespace
 			std::uint64_t time_ms = ts_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
 			json_obj["@timestamp"] = time_ms;
 
-			char host_name[MAX_NAME_LEN];
-			gethostname(host_name, MAX_NAME_LEN);
-			json_obj["hostname"] = host_name;
+			json_obj["hostname"] = boost::asio::ip::host_name();
 
 			pid_t pid = getpid();
 			json_obj["pid"] = pid;
@@ -436,9 +432,7 @@ namespace
 			std::uint64_t time_ms = ts_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
 			json_obj["@timestamp"] = time_ms;
 
-			char host_name[MAX_NAME_LEN];
-			gethostname(host_name, MAX_NAME_LEN);
-			insert_or_parse_as_bin(json_obj, "hostname", host_name, time_ms);
+			json_obj["hostname"] = boost::asio::ip::host_name();
 
 			json_obj["pid"] = getpid();
 			json_obj["rule_name"] = _rn;
