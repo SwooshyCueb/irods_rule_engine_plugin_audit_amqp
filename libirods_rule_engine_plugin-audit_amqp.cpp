@@ -18,12 +18,12 @@
 #include <map>
 #include <fstream>
 #include <mutex>
+#include <regex>
 
 // boost includes
 #include <boost/any.hpp>
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/config.hpp>
-#include <boost/regex.hpp>
 #include <boost/exception/all.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/format.hpp>
@@ -47,6 +47,7 @@ using ts_clock = std::chrono::system_clock;
 using log_re = irods::experimental::log::rule_engine;
 
 static const char* const rule_engine_name = "audit_amqp";
+static const auto pep_regex_flavor = std::regex::ECMAScript;
 
 // NOLINTBEGIN(cert-err58-cpp, cppcoreguidelines-avoid-non-const-global-variables)
 static const std::string_view default_pep_regex_to_match{"audit_.*"};
@@ -62,6 +63,8 @@ static std::string audit_amqp_location{default_amqp_location};
 static std::string audit_amqp_user{default_amqp_user};
 static std::string audit_amqp_password{default_amqp_password};
 static std::string audit_amqp_options{default_amqp_options};
+
+static std::regex audit_pep_regex{audit_pep_regex_to_match, pep_regex_flavor};
 
 static std::mutex audit_plugin_mutex;
 // NOLINTEND(cert-err58-cpp, cppcoreguidelines-avoid-non-const-global-variables)
@@ -214,6 +217,8 @@ auto get_re_configs(const std::string& _instance_name) -> irods::error
 					});
 					// clang-format on
 				}
+
+				audit_pep_regex = std::regex(audit_pep_regex_to_match, pep_regex_flavor | std::regex::optimize);
 
 				return SUCCESS();
 			}
@@ -391,13 +396,14 @@ auto stop([[maybe_unused]] irods::default_re_ctx& re_ctx, [[maybe_unused]] const
 auto rule_exists([[maybe_unused]] irods::default_re_ctx& re_ctx, const std::string& _rn, bool& _ret) -> irods::error
 {
 	try {
-		boost::smatch matches;
-		boost::regex expr(audit_pep_regex_to_match);
-		_ret = boost::regex_match(_rn, matches, expr);
+		std::smatch matches;
+		_ret = std::regex_match(_rn, matches, audit_pep_regex);
 	}
-	catch (const boost::exception& _e) {
-		std::string what = boost::diagnostic_information(_e);
-		return ERROR(SYS_INTERNAL_ERR, what);
+	catch (const std::exception& _e) {
+		return ERROR(SYS_INTERNAL_ERR, _e.what());
+	}
+	catch (...) {
+		return ERROR(SYS_UNKNOWN_ERROR, "an unknown error occurred");
 	}
 
 	return SUCCESS();
