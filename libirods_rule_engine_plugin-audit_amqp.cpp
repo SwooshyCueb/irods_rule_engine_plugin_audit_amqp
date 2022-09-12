@@ -21,12 +21,12 @@
 #include <map>
 #include <fstream>
 #include <mutex>
+#include <regex>
 
 // boost includes
 #include <boost/any.hpp>
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/config.hpp>
-#include <boost/regex.hpp>
 #include <boost/exception/all.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/format.hpp>
@@ -47,6 +47,7 @@
 
 namespace
 {
+	const auto pep_regex_flavor = std::regex::ECMAScript;
 
 	// NOLINTBEGIN(cert-err58-cpp, cppcoreguidelines-avoid-non-const-global-variables)
 	const std::string_view default_pep_regex_to_match{"audit_.*"};
@@ -68,6 +69,8 @@ namespace
 	bool test_mode;
 
 	std::ofstream log_file_ofstream;
+
+	std::regex audit_pep_regex{audit_pep_regex_to_match, pep_regex_flavor};
 
 	std::mutex audit_plugin_mutex;
 	// NOLINTEND(cert-err58-cpp, cppcoreguidelines-avoid-non-const-global-variables)
@@ -258,6 +261,8 @@ namespace
 		audit_amqp_options = default_amqp_options;
 		test_mode = default_test_mode;
 		log_path_prefix = default_log_path_prefix;
+
+		audit_pep_regex = std::regex(audit_pep_regex_to_match, pep_regex_flavor | std::regex::optimize);
 	}
 
 	auto get_re_configs(const std::string& _instance_name) -> irods::error
@@ -337,6 +342,8 @@ namespace
 				else {
 					log_path_prefix = log_path_prefix_cfg->get<std::string>();
 				}
+
+				audit_pep_regex = std::regex(audit_pep_regex_to_match, pep_regex_flavor | std::regex::optimize);
 
 				return SUCCESS();
 			}
@@ -485,13 +492,14 @@ namespace
 	auto rule_exists([[maybe_unused]] irods::default_re_ctx& re_ctx, const std::string& _rn, bool& _ret) -> irods::error
 	{
 		try {
-			boost::smatch matches;
-			boost::regex expr(audit_pep_regex_to_match);
-			_ret = boost::regex_match(_rn, matches, expr);
+			std::smatch matches;
+			_ret = std::regex_match(_rn, matches, audit_pep_regex);
 		}
-		catch (const boost::exception& _e) {
-			std::string what = boost::diagnostic_information(_e);
-			return ERROR(SYS_INTERNAL_ERR, what);
+		catch (const std::exception& _e) {
+			return ERROR(SYS_INTERNAL_ERR, _e.what());
+		}
+		catch (...) {
+			return ERROR(SYS_UNKNOWN_ERROR, "an unknown error occurred");
 		}
 
 		return SUCCESS();
