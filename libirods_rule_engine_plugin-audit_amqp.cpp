@@ -220,8 +220,6 @@ namespace
 		char host_name[MAX_NAME_LEN];
 		gethostname(host_name, MAX_NAME_LEN);
 
-		pid_t pid = getpid();
-
 		std::string msg_str;
 		std::string log_file;
 
@@ -230,7 +228,10 @@ namespace
 			json_obj["@timestamp"] = time_ms;
 
 			insert_or_parse_as_bin(json_obj, "hostname", host_name);
-			json_obj["pid"] = std::to_string(pid);
+
+			pid_t pid = getpid();
+			json_obj["pid"] = pid;
+
 			json_obj["action"] = "START";
 
 			if (test_mode) {
@@ -286,7 +287,7 @@ namespace
 			json_obj["hostname"] = host_name;
 
 			pid_t pid = getpid();
-			json_obj["pid"] = std::to_string(pid);
+			json_obj["pid"] = pid;
 
 			json_obj["action"] = "STOP";
 
@@ -374,9 +375,7 @@ namespace
 			gethostname(host_name, MAX_NAME_LEN);
 			insert_or_parse_as_bin(json_obj, "hostname", host_name);
 
-			pid_t pid = getpid();
-			json_obj["pid"] = std::to_string(pid);
-
+			json_obj["pid"] = getpid();
 			json_obj["rule_name"] = _rn;
 
 			for (const auto& itr : _ps) {
