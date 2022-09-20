@@ -23,7 +23,6 @@
 #include <boost/config.hpp>
 #include <boost/regex.hpp>
 #include <boost/exception/all.hpp>
-#include <boost/format.hpp>
 
 // proton-cpp includes
 #include <proton/connection_options.hpp>
@@ -43,9 +42,6 @@ namespace
 	std::string audit_amqp_user;
 	std::string audit_amqp_password;
 	std::string audit_amqp_options;
-	std::string log_path_prefix{"/tmp"};
-	bool test_mode = false;
-	std::ofstream log_file_ofstream;
 
 	std::mutex audit_plugin_mutex;
 	// NOLINTEND(cert-err58-cpp, cppcoreguidelines-avoid-non-const-global-variables)
@@ -212,20 +208,6 @@ namespace
 						else {
 							audit_amqp_options = amqp_options_cfg->get<std::string>();
 						}
-
-						// look for a test mode setting.  if it doesn't exist just keep test_mode at false.
-						// if test_mode = true and log_path_prefix isn't set just leave the default
-						const auto test_mode_cfg = plugin_spec_cfg.find("test_mode");
-						if (test_mode_cfg != plugin_spec_cfg.end()) {
-							const auto& test_mode_str = test_mode_cfg->get_ref<const std::string&>();
-							test_mode = boost::iequals(test_mode_str, "true");
-							if (test_mode) {
-								const auto log_path_prefix_cfg = plugin_spec_cfg.find("log_path_prefix");
-								if (log_path_prefix_cfg != plugin_spec_cfg.end()) {
-									log_path_prefix = log_path_prefix_cfg->get<std::string>();
-								}
-							}
-						}
 					}
 					else {
 						// clang-format off
@@ -283,16 +265,8 @@ namespace
 			json_obj["@timestamp"] = time_ms;
 
 			json_obj["hostname"] = boost::asio::ip::host_name();
-
-			pid_t pid = getpid();
-			json_obj["pid"] = pid;
-
+			json_obj["pid"] = getpid();
 			json_obj["action"] = "START";
-
-			if (test_mode) {
-				log_file = str(boost::format("%s/%06i.txt") % log_path_prefix % pid);
-				insert_or_parse_as_bin(json_obj, "log_file", log_file, time_ms);
-			}
 		}
 		catch (const irods::exception& e) {
 			log_exception(e, "Caught iRODS exception", {"instance_name", _instance_name});
@@ -318,11 +292,6 @@ namespace
 			audit_amqp_user,
 			audit_amqp_password);
 		proton::container(handler).run();
-
-		if (test_mode) {
-			log_file_ofstream.open(log_file);
-			log_file_ofstream << msg_str << std::endl;
-		}
 
 		return SUCCESS();
 	}
@@ -342,15 +311,8 @@ namespace
 			json_obj["@timestamp"] = time_ms;
 
 			json_obj["hostname"] = boost::asio::ip::host_name();
-
-			pid_t pid = getpid();
-			json_obj["pid"] = pid;
-
+			json_obj["pid"] = getpid();
 			json_obj["action"] = "STOP";
-
-			if (test_mode) {
-				json_obj["log_file"] = str(boost::format("%s/%06i.txt") % log_path_prefix % pid);
-			}
 		}
 		catch (const irods::exception& e) {
 			log_exception(e, "Caught iRODS exception", {"instance_name", _instance_name});
@@ -376,11 +338,6 @@ namespace
 			audit_amqp_user,
 			audit_amqp_password);
 		proton::container(handler).run();
-
-		if (test_mode) {
-			log_file_ofstream << msg_str << std::endl;
-			log_file_ofstream.close();
-		}
 
 		return SUCCESS();
 	}
@@ -509,10 +466,6 @@ namespace
 			audit_amqp_user,
 			audit_amqp_password);
 		proton::container(handler).run();
-
-		if (test_mode) {
-			log_file_ofstream << msg_str << std::endl;
-		}
 
 		return err;
 	}
