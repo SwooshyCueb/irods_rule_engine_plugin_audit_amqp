@@ -11,7 +11,6 @@
 #include <vector>
 #include <string>
 #include <chrono>
-#include <ctime>
 #include <map>
 #include <fstream>
 #include <mutex>
@@ -45,6 +44,14 @@ namespace
 
 	std::mutex audit_plugin_mutex;
 	// NOLINTEND(cert-err58-cpp, cppcoreguidelines-avoid-non-const-global-variables)
+
+#if __cpp_lib_chrono >= 201907
+	// use utc_clock if it's implemented (for leap seconds)
+	using ts_clock = std::chrono::utc_clock;
+#else
+	// fallback to system_clock
+	using ts_clock = std::chrono::system_clock;
+#endif
 
 	// See qpid-cpp docs
 	// https://qpid.apache.org/releases/qpid-proton-0.36.0/proton/cpp/api/simple_send_8cpp-example.html
@@ -191,10 +198,6 @@ namespace
 
 		nlohmann::json json_obj;
 
-		struct timeval tv;
-		gettimeofday(&tv, NULL);
-		unsigned long time_ms = tv.tv_sec * 1000 + tv.tv_usec / 1000;
-
 		char host_name[MAX_NAME_LEN];
 		gethostname(host_name, MAX_NAME_LEN);
 
@@ -204,7 +207,9 @@ namespace
 		std::string log_file;
 
 		try {
+			auto time_ms = ts_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
 			json_obj["time_stamp"] = std::to_string(time_ms);
+
 			insert_or_parse_as_bin(json_obj, "hostname", host_name);
 			json_obj["pid"] = std::to_string(pid);
 			json_obj["action"] = "START";
@@ -254,9 +259,7 @@ namespace
 		std::string log_file;
 
 		try {
-			struct timeval tv;
-			gettimeofday(&tv, NULL);
-			unsigned long time_ms = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+			auto time_ms = ts_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
 			json_obj["time_stamp"] = std::to_string(time_ms);
 
 			char host_name[MAX_NAME_LEN];
@@ -345,9 +348,7 @@ namespace
 		std::string log_file;
 
 		try {
-			struct timeval tv;
-			gettimeofday(&tv, NULL);
-			unsigned long time_ms = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+			auto time_ms = ts_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
 			json_obj["time_stamp"] = std::to_string(time_ms);
 
 			char host_name[MAX_NAME_LEN];
