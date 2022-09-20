@@ -29,7 +29,6 @@
 #include <boost/config.hpp>
 #include <boost/exception/all.hpp>
 #include <boost/algorithm/string.hpp>
-#include <boost/format.hpp>
 
 // proton-cpp includes
 #include <proton/connection.hpp>
@@ -45,6 +44,17 @@
 // fmt includes
 #include <fmt/core.h>
 
+// filesystem
+// clang-format off
+#ifdef __cpp_lib_filesystem
+#include <filesystem>
+namespace fs = std::filesystem;
+#else
+#include <boost/filesystem.hpp>
+namespace fs = boost::filesystem;
+#endif
+// clang-format on
+
 namespace
 {
 	const auto pep_regex_flavor = std::regex::ECMAScript;
@@ -56,7 +66,7 @@ namespace
 	const std::string_view default_amqp_password;
 	const std::string_view default_amqp_options;
 
-	const std::string_view default_log_path_prefix{"/tmp"};
+	const fs::path default_log_path_prefix{fs::temp_directory_path()};
 	const bool default_test_mode = false;
 
 	std::string audit_pep_regex_to_match;
@@ -65,9 +75,10 @@ namespace
 	std::string audit_amqp_password;
 	std::string audit_amqp_options;
 
-	std::string log_path_prefix;
+	fs::path log_path_prefix;
 	bool test_mode;
 
+	fs::path log_file_path;
 	std::ofstream log_file_ofstream;
 
 	std::regex audit_pep_regex{audit_pep_regex_to_match, pep_regex_flavor};
@@ -215,8 +226,7 @@ namespace
 		// clang-format on
 	}
 
-	BOOST_FORCEINLINE void
-	insert_or_parse_as_bin(
+	BOOST_FORCEINLINE void insert_or_parse_as_bin(
 		nlohmann::json& json_obj,
 		const std::string& key,
 		const std::string& val,
@@ -383,7 +393,6 @@ namespace
 		nlohmann::json json_obj;
 
 		std::string msg_str;
-		std::string log_file;
 
 		try {
 			std::uint64_t time_ms = ts_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
@@ -396,8 +405,8 @@ namespace
 			json_obj["action"] = "START";
 
 			if (test_mode) {
-				log_file = str(boost::format("%s/%06i.txt") % log_path_prefix % pid);
-				insert_or_parse_as_bin(json_obj, "log_file", log_file, time_ms);
+				log_file_path = log_path_prefix / fmt::format(FMT_STRING("{0:08d}.txt"), pid);
+				json_obj["log_file"] = log_file_path;
 			}
 		}
 		catch (const irods::exception& e) {
@@ -425,7 +434,9 @@ namespace
 		proton::container(handler).run();
 
 		if (test_mode) {
-			log_file_ofstream.open(log_file);
+			if (!log_file_ofstream.is_open()) {
+				log_file_ofstream.open(log_file_path);
+			}
 			log_file_ofstream << msg_str << std::endl;
 		}
 
@@ -447,14 +458,11 @@ namespace
 			json_obj["@timestamp"] = time_ms;
 
 			json_obj["hostname"] = boost::asio::ip::host_name();
-
-			pid_t pid = getpid();
-			json_obj["pid"] = pid;
-
+			json_obj["pid"] = getpid();
 			json_obj["action"] = "STOP";
 
 			if (test_mode) {
-				json_obj["log_file"] = str(boost::format("%s/%06i.txt") % log_path_prefix % pid);
+				json_obj["log_file"] = log_file_path;
 			}
 		}
 		catch (const irods::exception& e) {
@@ -482,6 +490,9 @@ namespace
 		proton::container(handler).run();
 
 		if (test_mode) {
+			if (!log_file_ofstream.is_open()) {
+				log_file_ofstream.open(log_file_path);
+			}
 			log_file_ofstream << msg_str << std::endl;
 			log_file_ofstream.close();
 		}
@@ -613,6 +624,9 @@ namespace
 		proton::container(handler).run();
 
 		if (test_mode) {
+			if (!log_file_ofstream.is_open()) {
+				log_file_ofstream.open(log_file_path);
+			}
 			log_file_ofstream << msg_str << std::endl;
 		}
 
