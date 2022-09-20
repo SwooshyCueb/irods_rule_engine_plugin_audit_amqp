@@ -6,6 +6,7 @@
 #undef LIST
 
 // stl includes
+#include <cstdint>
 #include <iostream>
 #include <sstream>
 #include <vector>
@@ -105,7 +106,7 @@ namespace
 				LOG_DEBUG,
 				fmt::format(
 					"[AUDIT] - Message with timestamp:[{}] had invalid UTF-8 in key:[{}] and was stored as binary.",
-					json_obj.at("time_stamp").get_ref<const std::string&>(),
+					json_obj.at("@timestamp").get_ref<const std::uint64_t&>(),
 					key)); // irods::log
 		}
 	}
@@ -207,8 +208,8 @@ namespace
 		std::string log_file;
 
 		try {
-			auto time_ms = ts_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
-			json_obj["time_stamp"] = std::to_string(time_ms);
+			std::uint64_t time_ms = ts_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
+			json_obj["@timestamp"] = time_ms;
 
 			insert_or_parse_as_bin(json_obj, "hostname", host_name);
 			json_obj["pid"] = std::to_string(pid);
@@ -259,8 +260,8 @@ namespace
 		std::string log_file;
 
 		try {
-			auto time_ms = ts_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
-			json_obj["time_stamp"] = std::to_string(time_ms);
+			std::uint64_t time_ms = ts_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
+			json_obj["@timestamp"] = time_ms;
 
 			char host_name[MAX_NAME_LEN];
 			gethostname(host_name, MAX_NAME_LEN);
@@ -348,8 +349,8 @@ namespace
 		std::string log_file;
 
 		try {
-			auto time_ms = ts_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
-			json_obj["time_stamp"] = std::to_string(time_ms);
+			std::uint64_t time_ms = ts_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
+			json_obj["@timestamp"] = time_ms;
 
 			char host_name[MAX_NAME_LEN];
 			gethostname(host_name, MAX_NAME_LEN);
