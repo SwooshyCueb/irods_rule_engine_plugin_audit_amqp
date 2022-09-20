@@ -237,11 +237,18 @@ namespace
 				if (inst_name == _instance_name) {
 					if (rule_engine.count(irods::KW_CFG_PLUGIN_SPECIFIC_CONFIGURATION) > 0) {
 						const auto& plugin_spec_cfg = rule_engine.at(irods::KW_CFG_PLUGIN_SPECIFIC_CONFIGURATION);
-
 						audit_pep_regex_to_match = plugin_spec_cfg.at("pep_regex_to_match").get<std::string>();
 						audit_amqp_topic = plugin_spec_cfg.at("amqp_topic").get<std::string>();
 						audit_amqp_location = plugin_spec_cfg.at("amqp_location").get<std::string>();
-						audit_amqp_options = plugin_spec_cfg.at("amqp_options").get<std::string>();
+
+						// amqp_options is optional
+						const auto amqp_options_cfg = plugin_spec_cfg.find("amqp_options");
+						if (amqp_options_cfg == plugin_spec_cfg.end()) {
+							audit_amqp_options.clear();
+						}
+						else {
+							audit_amqp_options = amqp_options_cfg->get<std::string>();
+						}
 
 						// look for a test mode setting.  if it doesn't exist just keep test_mode at false.
 						// if test_mode = true and log_path_prefix isn't set just leave the default
