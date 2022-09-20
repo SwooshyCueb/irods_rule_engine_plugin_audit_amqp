@@ -16,7 +16,7 @@
 #include <iostream>
 #include <sstream>
 #include <vector>
-#include <string>
+#include <string_view>
 #include <chrono>
 #include <map>
 #include <fstream>
@@ -44,25 +44,32 @@
 #include <proton/sender.hpp>
 #include <proton/session.hpp>
 
-// nlohmann includes
+// misc includes
 #include <nlohmann/json.hpp>
-
-// fmt includes
 #include <fmt/core.h>
-#include <fmt/compile.h>
 
 namespace
 {
 
 	// NOLINTBEGIN(cert-err58-cpp, cppcoreguidelines-avoid-non-const-global-variables)
-	std::string audit_pep_regex_to_match{"audit_.*"};
-	std::string audit_amqp_topic{"irods_audit_messages"};
-	std::string audit_amqp_location{"localhost:5672"};
+	const std::string_view default_pep_regex_to_match{"audit_.*"};
+	const std::string_view default_amqp_url{"localhost:5672/irods_audit_messages"};
+	const std::string_view default_amqp_user;
+	const std::string_view default_amqp_password;
+	const std::string_view default_amqp_options;
+
+	const std::string_view default_log_path_prefix{"/tmp"};
+	const bool default_test_mode = false;
+
+	std::string audit_pep_regex_to_match;
+	std::string audit_amqp_url;
 	std::string audit_amqp_user;
 	std::string audit_amqp_password;
 	std::string audit_amqp_options;
-	std::string log_path_prefix{"/tmp"};
-	bool test_mode = false;
+
+	std::string log_path_prefix;
+	bool test_mode;
+
 	std::ofstream log_file_ofstream;
 
 	std::mutex audit_plugin_mutex;
@@ -102,12 +109,10 @@ namespace
 		// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 		send_handler(
 			const std::string& _message,
-			const std::string& _location,
-			const std::string& _topic,
+			const std::string& _url,
 			const std::string& _user,
 			const std::string& _password)
-			: amqp_location(_location)
-			, amqp_topic(_topic)
+			: amqp_url(_url)
 			, user(_user)
 			, password(_password)
 			, message(_message)
@@ -125,9 +130,7 @@ namespace
 			if (!password.empty()) {
 				conn_opts.password(password);
 			}
-			container.open_sender(
-				fmt::format(FMT_COMPILE("{0:s}/{1:s}"), amqp_location, amqp_topic),
-				conn_opts);
+			container.open_sender(amqp_url, conn_opts);
 		}
 
 		void on_sendable(proton::sender& _sender) override
@@ -189,8 +192,7 @@ namespace
 		}
 
 	  private:
-		const std::string& amqp_location;
-		const std::string& amqp_topic;
+		const std::string& amqp_url;
 		const std::string& user;
 		const std::string& password;
 		proton::message message;
@@ -261,7 +263,17 @@ namespace
 		return iter->second;
 	}
 
-	// NOLINTNEXTLINE(readability-function-cognitive-complexity)
+	BOOST_FORCEINLINE void set_default_configs()
+	{
+		audit_pep_regex_to_match = default_pep_regex_to_match;
+		audit_amqp_url = default_amqp_url;
+		audit_amqp_user = default_amqp_user;
+		audit_amqp_password = default_amqp_password;
+		audit_amqp_options = default_amqp_options;
+		test_mode = default_test_mode;
+		log_path_prefix = default_log_path_prefix;
+	}
+
 	auto get_re_configs(const std::string& _instance_name) -> irods::error
 	{
 		try {
@@ -269,66 +281,78 @@ namespace
 				std::vector<std::string>{irods::KW_CFG_PLUGIN_CONFIGURATION, irods::KW_CFG_PLUGIN_TYPE_RULE_ENGINE});
 			for (const auto& rule_engine : rule_engines) {
 				const auto& inst_name = rule_engine.at(irods::KW_CFG_INSTANCE_NAME).get_ref<const std::string&>();
-				if (inst_name == _instance_name) {
-					if (rule_engine.count(irods::KW_CFG_PLUGIN_SPECIFIC_CONFIGURATION) > 0) {
-						const auto& plugin_spec_cfg = rule_engine.at(irods::KW_CFG_PLUGIN_SPECIFIC_CONFIGURATION);
-						audit_pep_regex_to_match = plugin_spec_cfg.at("pep_regex_to_match").get<std::string>();
-						audit_amqp_topic = plugin_spec_cfg.at("amqp_topic").get<std::string>();
-						audit_amqp_location = plugin_spec_cfg.at("amqp_location").get<std::string>();
+				if (inst_name != _instance_name) {
+					continue;
+				}
 
-						// amqp_user is optional
-						const auto amqp_user_cfg = plugin_spec_cfg.find("amqp_user");
-						if (amqp_user_cfg == plugin_spec_cfg.end()) {
-							audit_amqp_user.clear();
-						}
-						else {
-							audit_amqp_user = amqp_user_cfg->get<std::string>();
-						}
-
-						// amqp_password is optional
-						const auto amqp_password_cfg = plugin_spec_cfg.find("amqp_password");
-						if (amqp_password_cfg == plugin_spec_cfg.end()) {
-							audit_amqp_password.clear();
-						}
-						else {
-							audit_amqp_password = amqp_password_cfg->get<std::string>();
-						}
-
-						// amqp_options is optional
-						const auto amqp_options_cfg = plugin_spec_cfg.find("amqp_options");
-						if (amqp_options_cfg == plugin_spec_cfg.end()) {
-							audit_amqp_options.clear();
-						}
-						else {
-							audit_amqp_options = amqp_options_cfg->get<std::string>();
-						}
-
-						// look for a test mode setting.  if it doesn't exist just keep test_mode at false.
-						// if test_mode = true and log_path_prefix isn't set just leave the default
-						const auto test_mode_cfg = plugin_spec_cfg.find("test_mode");
-						if (test_mode_cfg != plugin_spec_cfg.end()) {
-							const auto& test_mode_str = test_mode_cfg->get_ref<const std::string&>();
-							test_mode = boost::iequals(test_mode_str, "true");
-							if (test_mode) {
-								const auto log_path_prefix_cfg = plugin_spec_cfg.find("log_path_prefix");
-								if (log_path_prefix_cfg != plugin_spec_cfg.end()) {
-									log_path_prefix = log_path_prefix_cfg->get<std::string>();
-								}
-							}
-						}
-					}
-					else {
-						// clang-format off
-						log_re::debug({
-							{"rule_engine_plugin", rule_engine_name},
-							{"log_message", "Using default plugin configuration"},
-							{"instance_name", _instance_name},
-						});
-						// clang-format on
-					}
+				if (rule_engine.count(irods::KW_CFG_PLUGIN_SPECIFIC_CONFIGURATION) <= 0) {
+					set_default_configs();
+					// clang-format off
+					log_re::debug({
+						{"rule_engine_plugin", rule_engine_name},
+						{"log_message", "Using default plugin configuration"},
+						{"instance_name", _instance_name},
+					});
+					// clang-format on
 
 					return SUCCESS();
 				}
+
+				const auto& plugin_spec_cfg = rule_engine.at(irods::KW_CFG_PLUGIN_SPECIFIC_CONFIGURATION);
+
+				audit_pep_regex_to_match = plugin_spec_cfg.at("pep_regex_to_match").get<std::string>();
+
+				const std::string amqp_topic = plugin_spec_cfg.at("amqp_topic").get<std::string>();
+				const std::string amqp_location = plugin_spec_cfg.at("amqp_location").get<std::string>();
+				audit_amqp_url = fmt::format(FMT_STRING("{0:s}/{1:s}"), amqp_location, amqp_topic);
+
+				// amqp_user is optional
+				const auto amqp_user_cfg = plugin_spec_cfg.find("amqp_user");
+				if (amqp_user_cfg == plugin_spec_cfg.end()) {
+					audit_amqp_user = default_amqp_user;
+				}
+				else {
+					audit_amqp_user = amqp_user_cfg->get<std::string>();
+				}
+
+				// amqp_password is optional
+				const auto amqp_password_cfg = plugin_spec_cfg.find("amqp_password");
+				if (amqp_password_cfg == plugin_spec_cfg.end()) {
+					audit_amqp_password = default_amqp_password;
+				}
+				else {
+					audit_amqp_password = amqp_password_cfg->get<std::string>();
+				}
+
+				// amqp_options is optional
+				const auto amqp_options_cfg = plugin_spec_cfg.find("amqp_options");
+				if (amqp_options_cfg == plugin_spec_cfg.end()) {
+					audit_amqp_options = default_amqp_options;
+				}
+				else {
+					audit_amqp_options = amqp_options_cfg->get<std::string>();
+				}
+
+				// test_mode is optional
+				const auto test_mode_cfg = plugin_spec_cfg.find("test_mode");
+				if (test_mode_cfg == plugin_spec_cfg.end()) {
+					test_mode = default_test_mode;
+				}
+				else {
+					const auto& test_mode_str = test_mode_cfg->get_ref<const std::string&>();
+					test_mode = boost::iequals(test_mode_str, "true");
+				}
+
+				// log_path_prefix is optional
+				const auto log_path_prefix_cfg = plugin_spec_cfg.find("log_path_prefix");
+				if (log_path_prefix_cfg == plugin_spec_cfg.end()) {
+					log_path_prefix = default_log_path_prefix;
+				}
+				else {
+					log_path_prefix = log_path_prefix_cfg->get<std::string>();
+				}
+
+				return SUCCESS();
 			}
 		}
 		catch (const std::out_of_range& e) {
@@ -402,8 +426,7 @@ namespace
 		msg_str = json_obj.dump();
 		send_handler handler(
 			msg_str,
-			audit_amqp_location,
-			audit_amqp_topic,
+			audit_amqp_url,
 			audit_amqp_user,
 			audit_amqp_password);
 		proton::container(handler).run();
@@ -460,8 +483,7 @@ namespace
 		msg_str = json_obj.dump();
 		send_handler handler(
 			msg_str,
-			audit_amqp_location,
-			audit_amqp_topic,
+			audit_amqp_url,
 			audit_amqp_user,
 			audit_amqp_password);
 		proton::container(handler).run();
@@ -591,8 +613,7 @@ namespace
 		msg_str = json_obj.dump();
 		send_handler handler(
 			msg_str,
-			audit_amqp_location,
-			audit_amqp_topic,
+			audit_amqp_url,
 			audit_amqp_user,
 			audit_amqp_password);
 		proton::container(handler).run();
@@ -614,6 +635,8 @@ using pluggable_rule_engine = irods::pluggable_rule_engine<irods::default_re_ctx
 
 extern "C" auto plugin_factory(const std::string& _inst_name, const std::string& _context) -> pluggable_rule_engine*
 {
+	set_default_configs();
+
 	const auto not_supported = [](auto&&...) { return ERROR(SYS_NOT_SUPPORTED, "Not supported."); };
 
 	auto* rule_engine = new irods::pluggable_rule_engine<irods::default_re_ctx>(_inst_name, _context);
