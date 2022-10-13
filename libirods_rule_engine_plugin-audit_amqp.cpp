@@ -65,15 +65,24 @@ namespace
 			: amqp_location(_location)
 			, amqp_topic(_topic)
 			, message(_message)
+			, message_sent(false)
 		{
 		}
 
 		void on_container_start(proton::container& container) override
 		{
 			proton::connection_options conn_opts;
-			sender = container.open_sender(
+			container.open_sender(
 				fmt::format(FMT_COMPILE("{0:s}/{1:s}"), amqp_location, amqp_topic),
 				conn_opts);
+		}
+
+		void on_sendable(proton::sender& _sender) override
+		{
+			if (_sender.credit() && !message_sent) {
+				_sender.send(message);
+				message_sent = true;
+			}
 		}
 
 		void on_tracker_accept(proton::tracker& tracker) override
@@ -81,20 +90,16 @@ namespace
 			// we're only sending one message
 			// so we don't care about the credit system
 			// or tracking confirmed messages
-			tracker.connection().close();
-		}
-
-		void on_sendable(proton::sender& _sender) override
-		{
-			proton::message m(message); // NOLINT(readability-identifier-length)
-			_sender.send(m);
+			if (message_sent) {
+				tracker.connection().close();
+			}
 		}
 
 	  private:
 		const std::string& amqp_location;
 		const std::string& amqp_topic;
-		const std::string& message;
-		proton::sender sender;
+		proton::message message;
+		bool message_sent;
 	}; // class send_handler
 
 	BOOST_FORCEINLINE void
