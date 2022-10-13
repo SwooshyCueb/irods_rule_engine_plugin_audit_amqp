@@ -29,6 +29,8 @@
 #include <boost/config.hpp>
 #include <boost/exception/all.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/archive/iterators/base64_from_binary.hpp>
+#include <boost/archive/iterators/transform_width.hpp>
 
 // proton-cpp includes
 #include <proton/connection.hpp>
@@ -226,7 +228,7 @@ namespace
 		// clang-format on
 	}
 
-	BOOST_FORCEINLINE void insert_or_parse_as_bin(
+	BOOST_FORCEINLINE void insert_as_string_or_base64(
 		nlohmann::json& json_obj,
 		const std::string& key,
 		const std::string& val,
@@ -236,7 +238,18 @@ namespace
 			json_obj[key] = nlohmann::json::parse("\"" + val + "\"");
 		}
 		catch (const nlohmann::json::exception&) {
-			json_obj[key] = nlohmann::json::binary(std::vector<std::uint8_t>(val.begin(), val.end()));
+			using namespace boost::archive::iterators;
+			using b64enc = base64_from_binary<transform_width<std::string::const_iterator, 6, 8>>;
+
+			// encode into base64 string
+			std::string val_b64(b64enc(std::begin(val)), b64enc(std::end(val)));
+			val_b64.append((3 - val.length() % 3) % 3, '='); // add padding ='s
+
+			// new key for encoded value
+			const std::string key_b64 = key + "_b64";
+
+			json_obj[key_b64] = val_b64;
+
 			// clang-format off
 			log_re::debug({
 				{"rule_engine_plugin", rule_engine_name},
@@ -592,7 +605,7 @@ namespace
 						key += ctr_str.str();
 					}
 
-					insert_or_parse_as_bin(json_obj, key, elem.second, time_ms);
+					insert_as_string_or_base64(json_obj, key, elem.second, time_ms);
 
 					++ctr;
 					ctr_str.clear();
