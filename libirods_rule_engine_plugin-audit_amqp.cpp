@@ -44,15 +44,13 @@
 
 // fmt includes
 #include <fmt/core.h>
-#include <fmt/compile.h>
 
 namespace
 {
 
 	// NOLINTBEGIN(cert-err58-cpp, cppcoreguidelines-avoid-non-const-global-variables)
 	const std::string_view default_pep_regex_to_match{"audit_.*"};
-	const std::string_view default_amqp_topic{"irods_audit_messages"};
-	const std::string_view default_amqp_location{"localhost:5672"};
+	const std::string_view default_amqp_url{"localhost:5672/irods_audit_messages"};
 	const std::string_view default_amqp_user;
 	const std::string_view default_amqp_password;
 	const std::string_view default_amqp_options;
@@ -60,15 +58,14 @@ namespace
 	const std::string_view default_log_path_prefix{"/tmp"};
 	const bool default_test_mode = false;
 
-	std::string audit_pep_regex_to_match{default_pep_regex_to_match};
-	std::string audit_amqp_topic{default_amqp_topic};
-	std::string audit_amqp_location{default_amqp_location};
-	std::string audit_amqp_user{default_amqp_user};
-	std::string audit_amqp_password{default_amqp_password};
-	std::string audit_amqp_options{default_amqp_options};
+	std::string audit_pep_regex_to_match;
+	std::string audit_amqp_url;
+	std::string audit_amqp_user;
+	std::string audit_amqp_password;
+	std::string audit_amqp_options;
 
-	std::string log_path_prefix{default_log_path_prefix};
-	bool test_mode = default_test_mode;
+	std::string log_path_prefix;
+	bool test_mode;
 
 	std::ofstream log_file_ofstream;
 
@@ -109,12 +106,10 @@ namespace
 		// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 		send_handler(
 			const std::string& _message,
-			const std::string& _location,
-			const std::string& _topic,
+			const std::string& _url,
 			const std::string& _user,
 			const std::string& _password)
-			: amqp_location(_location)
-			, amqp_topic(_topic)
+			: amqp_url(_url)
 			, user(_user)
 			, password(_password)
 			, message(_message)
@@ -132,9 +127,7 @@ namespace
 			if (!password.empty()) {
 				conn_opts.password(password);
 			}
-			container.open_sender(
-				fmt::format(FMT_COMPILE("{0:s}/{1:s}"), amqp_location, amqp_topic),
-				conn_opts);
+			container.open_sender(amqp_url, conn_opts);
 		}
 
 		void on_sendable(proton::sender& _sender) override
@@ -196,8 +189,7 @@ namespace
 		}
 
 	  private:
-		const std::string& amqp_location;
-		const std::string& amqp_topic;
+		const std::string& amqp_url;
 		const std::string& user;
 		const std::string& password;
 		proton::message message;
@@ -260,8 +252,7 @@ namespace
 	BOOST_FORCEINLINE void set_default_configs()
 	{
 		audit_pep_regex_to_match = default_pep_regex_to_match;
-		audit_amqp_topic = default_amqp_topic;
-		audit_amqp_location = default_amqp_location;
+		audit_amqp_url = default_amqp_url;
 		audit_amqp_user = default_amqp_user;
 		audit_amqp_password = default_amqp_password;
 		audit_amqp_options = default_amqp_options;
@@ -294,9 +285,12 @@ namespace
 				}
 
 				const auto& plugin_spec_cfg = rule_engine.at(irods::KW_CFG_PLUGIN_SPECIFIC_CONFIGURATION);
+
 				audit_pep_regex_to_match = plugin_spec_cfg.at("pep_regex_to_match").get<std::string>();
-				audit_amqp_topic = plugin_spec_cfg.at("amqp_topic").get<std::string>();
-				audit_amqp_location = plugin_spec_cfg.at("amqp_location").get<std::string>();
+
+				const std::string amqp_topic = plugin_spec_cfg.at("amqp_topic").get<std::string>();
+				const std::string amqp_location = plugin_spec_cfg.at("amqp_location").get<std::string>();
+				audit_amqp_url = fmt::format(FMT_STRING("{0:s}/{1:s}"), amqp_location, amqp_topic);
 
 				// amqp_user is optional
 				const auto amqp_user_cfg = plugin_spec_cfg.find("amqp_user");
@@ -419,8 +413,7 @@ namespace
 		msg_str = json_obj.dump();
 		send_handler handler(
 			msg_str,
-			audit_amqp_location,
-			audit_amqp_topic,
+			audit_amqp_url,
 			audit_amqp_user,
 			audit_amqp_password);
 		proton::container(handler).run();
@@ -477,8 +470,7 @@ namespace
 		msg_str = json_obj.dump();
 		send_handler handler(
 			msg_str,
-			audit_amqp_location,
-			audit_amqp_topic,
+			audit_amqp_url,
 			audit_amqp_user,
 			audit_amqp_password);
 		proton::container(handler).run();
@@ -609,8 +601,7 @@ namespace
 		msg_str = json_obj.dump();
 		send_handler handler(
 			msg_str,
-			audit_amqp_location,
-			audit_amqp_topic,
+			audit_amqp_url,
 			audit_amqp_user,
 			audit_amqp_password);
 		proton::container(handler).run();
