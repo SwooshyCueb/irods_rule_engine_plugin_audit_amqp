@@ -84,6 +84,17 @@ OUTPUT ruleExecOut
             os.unlink(rule_file)
 
 
+    def test_missing_amqp_options_config(self):
+        with lib.file_backed_up(paths.server_config_path()):
+            with session.make_session_for_existing_admin() as admin_session:
+                irods_config = IrodsConfig()
+                print(irods_config.server_config)
+                del irods_config.server_config['plugin_configuration']['rule_engines'][1]['plugin_specific_configuration']['amqp_options']
+                print(irods_config.server_config)
+                irods_config.commit(irods_config.server_config, irods_config.server_config_path, make_backup=True)
+                admin_session.assert_icommand(['ils'], 'STDOUT', admin_session.home_collection)
+
+
     def test_missing_test_mode_config__issue_98(self):
         with lib.file_backed_up(paths.server_config_path()):
             with session.make_session_for_existing_admin() as admin_session:
