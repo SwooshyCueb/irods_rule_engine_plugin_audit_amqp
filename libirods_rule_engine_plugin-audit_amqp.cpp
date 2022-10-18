@@ -241,7 +241,7 @@ namespace
 
 			if (test_mode) {
 				log_file = str(boost::format("%s/%06i.txt") % log_path_prefix % pid);
-				insert_as_string_or_base64(json_obj, "log_file", log_file);
+				json_obj["log_file"] = log_file;
 			}
 		}
 		catch (const irods::exception& e) {
