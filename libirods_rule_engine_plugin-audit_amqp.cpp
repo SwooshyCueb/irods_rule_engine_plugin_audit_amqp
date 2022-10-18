@@ -26,6 +26,8 @@
 #include <boost/regex.hpp>
 #include <boost/exception/all.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/archive/iterators/base64_from_binary.hpp>
+#include <boost/archive/iterators/transform_width.hpp>
 #include <boost/format.hpp>
 
 // proton-cpp includes
@@ -103,19 +105,31 @@ namespace
 	}; // class send_handler
 
 	BOOST_FORCEINLINE void
-	insert_or_parse_as_bin(nlohmann::json& json_obj, const std::string& key, const std::string& val)
+	insert_as_string_or_base64(nlohmann::json& json_obj, const std::string& key, const std::string& val)
 	{
 		try {
 			json_obj[key] = nlohmann::json::parse("\"" + val + "\"");
 		}
 		catch (const nlohmann::json::exception&) {
-			json_obj[key] = nlohmann::json::binary(std::vector<std::uint8_t>(val.begin(), val.end()));
+			using namespace boost::archive::iterators;
+			using b64enc = base64_from_binary<transform_width<std::string::const_iterator, 6, 8>>;
+
+			// encode into base64 string
+			std::string val_b64(b64enc(std::begin(val)), b64enc(std::end(val)));
+			val_b64.append((3 - val.length() % 3) % 3, '='); // add padding ='s
+
+			// new key for encoded value
+			const std::string key_b64 = key + "_b64";
+
+			json_obj[key_b64] = val_b64;
+
 			irods::log(
 				LOG_DEBUG,
 				fmt::format(
-					"[AUDIT] - Message with timestamp:[{}] had invalid UTF-8 in key:[{}] and was stored as binary.",
+					"[AUDIT] - Message with timestamp:[{}] had invalid UTF-8 in key:[{}] and was stored as base64 in key:[{}].",
 					json_obj.at("time_stamp").get_ref<const std::string&>(),
-					key)); // irods::log
+					key,
+					key_b64)); // irods::log
 		}
 	}
 
@@ -227,7 +241,7 @@ namespace
 
 			if (test_mode) {
 				log_file = str(boost::format("%s/%06i.txt") % log_path_prefix % pid);
-				insert_or_parse_as_bin(json_obj, "log_file", log_file);
+				insert_as_string_or_base64(json_obj, "log_file", log_file);
 			}
 		}
 		catch (const irods::exception& e) {
@@ -403,7 +417,7 @@ namespace
 						key += ctr_str.str();
 					}
 
-					insert_or_parse_as_bin(json_obj, key, elem.second);
+					insert_as_string_or_base64(json_obj, key, elem.second);
 
 					++ctr;
 					ctr_str.clear();
