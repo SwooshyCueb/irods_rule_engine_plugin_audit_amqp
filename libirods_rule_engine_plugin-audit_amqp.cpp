@@ -38,6 +38,9 @@
 #include <proton/tracker.hpp>
 #include <proton/sender.hpp>
 
+// nlohmann includes
+#include <nlohmann/json.hpp>
+
 // fmt includes
 #include <fmt/core.h>
 #include <fmt/compile.h>
