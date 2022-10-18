@@ -221,7 +221,7 @@ namespace
 
 		try {
 			json_obj["time_stamp"] = std::to_string(time_ms);
-			insert_or_parse_as_bin(json_obj, "hostname", host_name);
+			json_obj["hostname"] = host_name;
 			json_obj["pid"] = std::to_string(pid);
 			json_obj["action"] = "START";
 
@@ -368,7 +368,7 @@ namespace
 
 			char host_name[MAX_NAME_LEN];
 			gethostname(host_name, MAX_NAME_LEN);
-			insert_or_parse_as_bin(json_obj, "hostname", host_name);
+			json_obj["hostname"] = host_name;
 
 			pid_t pid = getpid();
 			json_obj["pid"] = std::to_string(pid);
