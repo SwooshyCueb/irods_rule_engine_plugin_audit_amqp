@@ -23,18 +23,36 @@ namespace irods::plugin::rule_engine::audit_amqp
 	using ts_clock = std::chrono::system_clock;
 #endif
 
-	template <class T>
-	static BOOST_FORCEINLINE void log_exception(
-		const T& exception,
-		const std::string& log_message,
-		const irods::experimental::log::key_value& context_info)
+	template <class Logger>
+	BOOST_FORCEINLINE void log_exception(const Logger& logger,
+	                                     const std::string& log_message,
+	                                     const std::string& e_what,
+	                                     const std::string& instance_name,
+	                                     const std::string& rule_name)
 	{
 		// clang-format off
-		log_re::info({
+		logger({
 			{"rule_engine_plugin", rule_engine_name},
+			{"instance_name", instance_name},
+			{"rule_name", rule_name},
 			{"log_message", log_message},
-			context_info,
-			{"exception", exception.what()},
+			{"exception", e_what},
+		});
+		// clang-format on
+	}
+
+	template <class Logger>
+	BOOST_FORCEINLINE void log_exception(const Logger& logger,
+	                                     const std::string& log_message,
+	                                     const std::string& e_what,
+	                                     const std::string& instance_name)
+	{
+		// clang-format off
+		logger({
+			{"rule_engine_plugin", rule_engine_name},
+			{"instance_name", instance_name},
+			{"log_message", log_message},
+			{"exception", e_what},
 		});
 		// clang-format on
 	}
