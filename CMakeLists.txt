@@ -104,6 +104,10 @@ target_link_libraries(
   ${CMAKE_DL_LIBS}
   )
 
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+  target_compile_definitions(${PLUGIN} PRIVATE IRODS_AUDIT_EXTRA_TRACE)
+endif()
+
 check_cxx_symbol_exists(__cpp_lib_filesystem "version" HAVE_STD_FILESYSTEM)
 if (NOT HAVE_STD_FILESYSTEM)
   target_link_libraries(

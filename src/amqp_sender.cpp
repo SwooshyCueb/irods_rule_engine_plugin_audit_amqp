@@ -1,58 +1,418 @@
 #include "irods/private/audit_amqp.hpp"
 #include "irods/private/amqp_sender.hpp"
 
-#include <boost/config.hpp>
+#include <irods/irods_configuration_keywords.hpp>
+#include <irods/irods_error.hpp>
+#include <irods/irods_exception.hpp>
+#include <irods/irods_logger.hpp>
+#include <irods/irods_server_properties.hpp>
+#include <irods/rodsErrorTable.h>
+
+#include <fmt/format.h>
+
+#include <nlohmann/json.hpp>
+
+#include <proton/connection.hpp>
+#include <proton/connection_options.hpp>
+#include <proton/container.hpp>
+#include <proton/error_condition.hpp>
+#include <proton/message.hpp>
+#include <proton/reconnect_options.hpp>
+#include <proton/sender.hpp>
+#include <proton/sender_options.hpp>
+#include <proton/session.hpp>
+#include <proton/target_options.hpp>
+#include <proton/timestamp.hpp>
+#include <proton/tracker.hpp>
+#include <proton/transport.hpp>
+#include <proton/work_queue.hpp>
+
+#include <sys/types.h>
+
+#include <cstdint>
+#include <mutex>
+#include <optional>
+#include <ostream>
+#include <semaphore>
+#include <string>
+#include <thread>
 
 namespace irods::plugin::rule_engine::audit_amqp
 {
-	namespace
+	amqp_sender::amqp_sender()
+		: is_configured_(false)
+		, is_open_(false)
+		, connection_sem_(0)
+	{ }
+
+	amqp_sender::~amqp_sender()
 	{
-		BOOST_FORCEINLINE void log_proton_error(const proton::error_condition& err_cond, const std::string& log_message)
-		{
+		close();
+	}
+
+	irods::error amqp_sender::configure(const std::string& _re_instance_name,
+	                                    const std::string& _url,
+	                                    const std::optional<bool> _durable_messages)
+	{
+		if (is_open_) {
+			return ERROR(SYS_ALREADY_INITIALIZED, "amqp_sender::configure called on open amqp_sender");
+		}
+		if (_url.empty()) {
+			return ERROR(SYS_INVALID_SERVER_HOST, "amqp_sender::configure called with empty url");
+		}
+
+#ifdef IRODS_AUDIT_EXTRA_TRACE
+		// clang-format off
+		log_re::trace({
+			{"rule_engine_plugin", rule_engine_name},
+			{"instance_name", _re_instance_name},
+			{"call", __PRETTY_FUNCTION__},
+			{"url", _url},
+		});
+		// clang-format on
+#endif
+
+		re_instance_name_ = _re_instance_name;
+		url_ = _url;
+		durable_messages_ = _durable_messages;
+
+		is_configured_ = true;
+
+		return SUCCESS();
+	}
+
+	irods::error amqp_sender::unconfigure()
+	{
+#ifdef IRODS_AUDIT_EXTRA_TRACE
+		// clang-format off
+		log_re::trace({
+			{"rule_engine_plugin", rule_engine_name},
+			{"instance_name", re_instance_name_},
+			{"call", __PRETTY_FUNCTION__}
+		});
+		// clang-format on
+#endif
+
+		if (is_open_) {
+			return ERROR(RE_RUNTIME_ERROR, "amqp_sender::unconfigure called on open amqp_sender");
+		}
+
+		is_configured_ = false;
+
+		return SUCCESS();
+	}
+
+	irods::error amqp_sender::open()
+	{
+		if (!is_configured_) {
+			return ERROR(SYS_UNINITIALIZED, "amqp_sender::open called on unconfigured amqp_sender");
+		}
+
+		close();
+
+		// This is after the call to close to avoid the potentially confusing situation of having the log entry for the
+		// close call immediately following the log entry for the open call.
+#ifdef IRODS_AUDIT_EXTRA_TRACE
+		// clang-format off
+		log_re::trace({
+			{"rule_engine_plugin", rule_engine_name},
+			{"instance_name", re_instance_name_},
+			{"call", __PRETTY_FUNCTION__}
+		});
+		// clang-format on
+#endif
+
+		proton::connection_options conn_opts;
+		proton::reconnect_options reconn_opts;
+		conn_opts.handler(*this);
+		conn_opts.reconnect(reconn_opts);
+
+		proton::sender_options sender_opts;
+		proton::target_options target_opts;
+		sender_opts.handler(*this);
+		sender_opts.target(target_opts);
+
+		container_.emplace(*this);
+		proton::container& container = *container_;
+
+		container.client_connection_options(conn_opts);
+		container.sender_options(sender_opts);
+
+		proton_thread_.emplace([&container]() { container.run(); });
+		connection_sem_.acquire();
+
+		return SUCCESS();
+	}
+
+	void amqp_sender::close()
+	{
+		const std::scoped_lock<std::mutex> send_lock(amqp_send_mutex_);
+
+#ifdef IRODS_AUDIT_EXTRA_TRACE
+		// clang-format off
+		log_re::trace({
+			{"rule_engine_plugin", rule_engine_name},
+			{"instance_name", re_instance_name_},
+			{"call", __PRETTY_FUNCTION__},
+		});
+		// clang-format on
+#endif
+
+		std::binary_semaphore disconn_sem(0);
+
+		if (sender_.has_value()) {
+			proton::sender& sender = *sender_;
+			bool wq_res = sender.work_queue().add([&sender, &disconn_sem]() {
+				if (!sender.closed()) {
+					sender.close();
+				}
+				disconn_sem.release();
+			});
+			if (wq_res) {
+				disconn_sem.acquire();
+#ifdef IRODS_AUDIT_EXTRA_TRACE
+				// clang-format off
+				log_re::trace({
+					{"rule_engine_plugin", rule_engine_name},
+					{"instance_name", re_instance_name_},
+					{"log_message", "AMQP sender closed"},
+				});
+				// clang-format on
+#endif
+			}
+			else {
+				// clang-format off
+				log_re::warn({
+					{"rule_engine_plugin", rule_engine_name},
+					{"instance_name", re_instance_name_},
+					{"log_message", "Could not queue AMQP sender close call"},
+				});
+				// clang-format on
+			}
+
+			proton::session session = sender.session();
+			wq_res = sender.work_queue().add([&session, &disconn_sem]() {
+				if (!session.closed()) {
+					session.close();
+				}
+				disconn_sem.release();
+			});
+			if (wq_res) {
+				disconn_sem.acquire();
+#ifdef IRODS_AUDIT_EXTRA_TRACE
+				// clang-format off
+				log_re::trace({
+					{"rule_engine_plugin", rule_engine_name},
+					{"instance_name", re_instance_name_},
+					{"log_message", "AMQP session closed"},
+				});
+				// clang-format on
+#endif
+			}
+			else {
+				// clang-format off
+				log_re::warn({
+					{"rule_engine_plugin", rule_engine_name},
+					{"instance_name", re_instance_name_},
+					{"log_message", "Could not queue AMQP session close call"},
+				});
+				// clang-format on
+			}
+		}
+
+		is_open_ = false;
+
+		bool did_close_conn = false;
+		if (connection_.has_value()) {
+			proton::connection& connection = *connection_;
+			const bool wq_res = connection.work_queue().add([&connection, &disconn_sem]() {
+				if (!connection.closed()) {
+					connection.close();
+				}
+				disconn_sem.release();
+			});
+			if (wq_res) {
+				disconn_sem.acquire();
+				did_close_conn = true;
+#ifdef IRODS_AUDIT_EXTRA_TRACE
+				// clang-format off
+				log_re::trace({
+					{"rule_engine_plugin", rule_engine_name},
+					{"instance_name", re_instance_name_},
+					{"log_message", "AMQP connection closed"},
+				});
+#endif
+				// clang-format on
+			}
+			else {
+				// clang-format off
+				log_re::warn({
+					{"rule_engine_plugin", rule_engine_name},
+					{"instance_name", re_instance_name_},
+					{"log_message", "Could not queue AMQP connection close call"},
+				});
+				// clang-format on
+			}
+		}
+
+		if (container_.has_value() && !did_close_conn) {
+			container_->stop();
+#ifdef IRODS_AUDIT_EXTRA_TRACE
+			// clang-format off
+			log_re::trace({
+				{"rule_engine_plugin", rule_engine_name},
+				{"instance_name", re_instance_name_},
+				{"log_message", "AMQP container stopped"},
+			});
+#endif
+			// clang-format on
+		}
+
+		if (proton_thread_.has_value()) {
+			if (proton_thread_->joinable()) {
+				proton_thread_->join();
+#ifdef IRODS_AUDIT_EXTRA_TRACE
+				// clang-format off
+				log_re::trace({
+					{"rule_engine_plugin", rule_engine_name},
+					{"instance_name", re_instance_name_},
+					{"log_message", "Proton thread joined"},
+				});
+#endif
+				// clang-format on
+			}
+			else {
+				// clang-format off
+				log_re::debug({
+					{"rule_engine_plugin", rule_engine_name},
+					{"instance_name", re_instance_name_},
+					{"log_message", "Proton thread not joinable"},
+				});
+				// clang-format on
+			}
+		}
+
+		sender_.reset();
+		connection_.reset();
+		container_.reset();
+		proton_thread_.reset();
+	}
+
+	void amqp_sender::send_message(nlohmann::json& _message_body,
+	                               const std::uint64_t _timestamp_ms,
+	                               const pid_t _pid,
+	                               std::ofstream& _test_log_ofstream)
+	{
+		const std::scoped_lock<std::mutex> send_lock(amqp_send_mutex_);
+
+		if (!(is_open_ && sender_.has_value())) {
+			THROW(SYS_UNINITIALIZED, "send_message called on closed amqp_sender");
+		}
+
+#ifdef IRODS_AUDIT_EXTRA_TRACE
+		// clang-format off
+		log_re::trace({
+			{"rule_engine_plugin", rule_engine_name},
+			{"instance_name", re_instance_name_},
+			{"call", __PRETTY_FUNCTION__},
+		});
+		// clang-format on
+#endif
+
+		_message_body["@timestamp"] = _timestamp_ms;
+		_message_body["hostname"] = irods::get_server_property<std::string>(irods::KW_CFG_HOST);
+		_message_body["pid"] = _pid;
+
+		const std::string msg_str = _message_body.dump();
+
+		proton::message msg(msg_str);
+		msg.content_type("application/json");
+		msg.creation_time(proton::timestamp(static_cast<proton::timestamp::numeric_type>(_timestamp_ms)));
+		if (durable_messages_.has_value()) {
+			msg.durable(*durable_messages_);
+		}
+
+		std::binary_semaphore send_semaphore(0);
+		proton::sender& sender = *sender_;
+		const bool is_sending = sender.work_queue().add([&sender, &msg, &send_semaphore]() {
+			const proton::tracker t = sender.send(msg);
+#ifdef IRODS_AUDIT_EXTRA_TRACE
+			// clang-format off
+			log_re::debug({
+				{"rule_engine_plugin", rule_engine_name},
+				{"tracker::state", std::to_string(t.state())},
+			});
+			// clang-format on
+#endif
+			send_semaphore.release();
+		});
+		if (is_sending) {
+			send_semaphore.acquire();
+		}
+		else {
 			// clang-format off
 			log_re::error({
 				{"rule_engine_plugin", rule_engine_name},
-				{"log_message", log_message},
-				{"error_condition::name", err_cond.name()},
-				{"error_condition::description", err_cond.description()},
-				{"error_condition::what", err_cond.what()}
+				{"instance_name", re_instance_name_},
+				{"log_message", "Could not add message to work queue."}
 			});
 			// clang-format on
 		}
-	} // namespace
 
-	send_handler::send_handler(const proton::message& _message, const std::string& _url)
-		: _amqp_url(_url)
-		, _message(_message)
-		, _message_sent(false)
-	{
+		if (_test_log_ofstream.is_open()) {
+#ifdef IRODS_AUDIT_EXTRA_TRACE
+			// clang-format off
+			log_re::trace({
+				{"rule_engine_plugin", rule_engine_name},
+				{"instance_name", re_instance_name_},
+				{"log_message", "Writing amqp message to test log."}
+			});
+			// clang-format on
+#endif
+			_test_log_ofstream << msg_str << '\n' << std::flush;
+			if (!_test_log_ofstream.good()) {
+				// clang-format off
+				log_re::error({
+					{"rule_engine_plugin", rule_engine_name},
+					{"instance_name", re_instance_name_},
+					{"log_message", "Error while writing to test log."}
+				});
+				// clang-format on
+			}
+		}
 	}
 
-	void send_handler::on_container_start(proton::container& _container)
+	void amqp_sender::on_container_start([[maybe_unused]] proton::container& _container)
 	{
+#ifdef IRODS_AUDIT_EXTRA_TRACE
+		// clang-format off
+		log_re::trace({
+			{"rule_engine_plugin", rule_engine_name},
+			{"instance_name", re_instance_name_},
+			{"call", __PRETTY_FUNCTION__},
+		});
+		// clang-format on
+#endif
+
 		proton::connection_options conn_opts;
-		_container.open_sender(_amqp_url, conn_opts);
+		proton::reconnect_options reconn_opts;
+		conn_opts.handler(*this);
+		conn_opts.reconnect(reconn_opts);
+
+		proton::sender_options sender_opts;
+		proton::target_options target_opts;
+		sender_opts.handler(*this);
+		sender_opts.target(target_opts);
+
+		sender_ = _container.open_sender(url_, sender_opts, conn_opts);
+		connection_ = sender_->connection();
+
+		is_open_ = true;
+
+		connection_sem_.release();
 	}
 
-	void send_handler::on_sendable(proton::sender& _sender)
-	{
-		if (_sender.credit() && !_message_sent) {
-			_sender.send(_message);
-			_message_sent = true;
-		}
-	}
-
-	void send_handler::on_tracker_accept(proton::tracker& _tracker)
-	{
-		// we're only sending one message
-		// so we don't care about the credit system
-		// or tracking confirmed messages
-		if (_message_sent) {
-			_tracker.connection().close();
-		}
-	}
-
-	void send_handler::on_tracker_reject([[maybe_unused]] proton::tracker& _tracker)
+	void amqp_sender::on_tracker_reject([[maybe_unused]] proton::tracker& _tracker)
 	{
 		// clang-format off
 		log_re::error({
@@ -62,33 +422,255 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// clang-format on
 	}
 
-	void send_handler::on_transport_error(proton::transport& _transport)
+	void amqp_sender::on_transport_error(proton::transport& _transport)
 	{
-		log_proton_error(_transport.error(), "Transport error in proton messaging handler");
+		const proton::error_condition& err_cond = _transport.error();
+		// clang-format off
+		log_re::error({
+			{"rule_engine_plugin", rule_engine_name},
+			{"instance_name", re_instance_name_},
+			{"log_message", "Transport error in proton messaging handler"},
+			{"error_condition::name", err_cond.name()},
+			{"error_condition::description", err_cond.description()},
+			{"error_condition::what", err_cond.what()}
+		});
+		// clang-format on
 	}
 
-	void send_handler::on_connection_error(proton::connection& _connection)
+	void amqp_sender::on_connection_error(proton::connection& _connection)
 	{
-		log_proton_error(_connection.error(), "Connection error in proton messaging handler");
+		const proton::error_condition& err_cond = _connection.error();
+		// clang-format off
+		log_re::error({
+			{"rule_engine_plugin", rule_engine_name},
+			{"instance_name", re_instance_name_},
+			{"log_message", "Connection error in proton messaging handler"},
+			{"error_condition::name", err_cond.name()},
+			{"error_condition::description", err_cond.description()},
+			{"error_condition::what", err_cond.what()}
+		});
+		// clang-format on
 	}
 
-	void send_handler::on_session_error(proton::session& _session)
+	void amqp_sender::on_session_error(proton::session& _session)
 	{
-		log_proton_error(_session.error(), "Session error in proton messaging handler");
+		const proton::error_condition& err_cond = _session.error();
+		// clang-format off
+		log_re::error({
+			{"rule_engine_plugin", rule_engine_name},
+			{"instance_name", re_instance_name_},
+			{"log_message", "Session error in proton messaging handler"},
+			{"error_condition::name", err_cond.name()},
+			{"error_condition::description", err_cond.description()},
+			{"error_condition::what", err_cond.what()}
+		});
+		// clang-format on
 	}
 
-	void send_handler::on_receiver_error(proton::receiver& _receiver)
+	void amqp_sender::on_sender_error(proton::sender& _sender)
 	{
-		log_proton_error(_receiver.error(), "Receiver error in proton messaging handler");
+		const proton::error_condition& err_cond = _sender.error();
+		// clang-format off
+		log_re::error({
+			{"rule_engine_plugin", rule_engine_name},
+			{"instance_name", re_instance_name_},
+			{"log_message", "Sender error in proton messaging handler"},
+			{"error_condition::name", err_cond.name()},
+			{"error_condition::description", err_cond.description()},
+			{"error_condition::what", err_cond.what()}
+		});
+		// clang-format on
 	}
 
-	void send_handler::on_sender_error(proton::sender& _sender)
+	void amqp_sender::on_error(const proton::error_condition& _err_cond)
 	{
-		log_proton_error(_sender.error(), "Sender error in proton messaging handler");
+		// clang-format off
+		log_re::error({
+			{"rule_engine_plugin", rule_engine_name},
+			{"instance_name", re_instance_name_},
+			{"log_message", "Unknown error in proton messaging handler"},
+			{"error_condition::name", _err_cond.name()},
+			{"error_condition::description", _err_cond.description()},
+			{"error_condition::what", _err_cond.what()}
+		});
+		// clang-format on
 	}
 
-	void send_handler::on_error(const proton::error_condition& _err_cond)
+#ifdef IRODS_AUDIT_EXTRA_TRACE
+	void amqp_sender::on_container_stop([[maybe_unused]] proton::container& _container)
 	{
-		log_proton_error(_err_cond, "Unknown error in proton messaging handler");
+		// clang-format off
+		log_re::trace({
+			{"rule_engine_plugin", rule_engine_name},
+			{"instance_name", re_instance_name_},
+			{"call", __PRETTY_FUNCTION__},
+		});
+		// clang-format on
 	}
+
+	void amqp_sender::on_sendable([[maybe_unused]] proton::sender& _sender)
+	{
+		// clang-format off
+		log_re::trace({
+			{"rule_engine_plugin", rule_engine_name},
+			{"instance_name", re_instance_name_},
+			{"call", __PRETTY_FUNCTION__},
+		});
+		// clang-format on
+	}
+
+	void amqp_sender::on_transport_open([[maybe_unused]] proton::transport& _transport)
+	{
+		// clang-format off
+		log_re::trace({
+			{"rule_engine_plugin", rule_engine_name},
+			{"instance_name", re_instance_name_},
+			{"call", __PRETTY_FUNCTION__},
+		});
+		// clang-format on
+	}
+
+	void amqp_sender::on_transport_close([[maybe_unused]] proton::transport& _transport)
+	{
+		// clang-format off
+		log_re::trace({
+			{"rule_engine_plugin", rule_engine_name},
+			{"instance_name", re_instance_name_},
+			{"call", __PRETTY_FUNCTION__},
+		});
+		// clang-format on
+	}
+
+	void amqp_sender::on_connection_open([[maybe_unused]] proton::connection& _connection)
+	{
+		// clang-format off
+		log_re::trace({
+			{"rule_engine_plugin", rule_engine_name},
+			{"instance_name", re_instance_name_},
+			{"call", __PRETTY_FUNCTION__},
+		});
+		// clang-format on
+	}
+
+	void amqp_sender::on_connection_close([[maybe_unused]] proton::connection& _connection)
+	{
+		// clang-format off
+		log_re::trace({
+			{"rule_engine_plugin", rule_engine_name},
+			{"instance_name", re_instance_name_},
+			{"call", __PRETTY_FUNCTION__},
+		});
+		// clang-format on
+	}
+
+	void amqp_sender::on_session_open([[maybe_unused]] proton::session& _session)
+	{
+		// clang-format off
+		log_re::trace({
+			{"rule_engine_plugin", rule_engine_name},
+			{"instance_name", re_instance_name_},
+			{"call", __PRETTY_FUNCTION__},
+		});
+		// clang-format on
+	}
+
+	void amqp_sender::on_session_close([[maybe_unused]] proton::session& _session)
+	{
+		// clang-format off
+		log_re::trace({
+			{"rule_engine_plugin", rule_engine_name},
+			{"instance_name", re_instance_name_},
+			{"call", __PRETTY_FUNCTION__},
+		});
+		// clang-format on
+	}
+
+	void amqp_sender::on_sender_open([[maybe_unused]] proton::sender& _sender)
+	{
+		// clang-format off
+		log_re::trace({
+			{"rule_engine_plugin", rule_engine_name},
+			{"instance_name", re_instance_name_},
+			{"call", __PRETTY_FUNCTION__},
+		});
+		// clang-format on
+	}
+
+	void amqp_sender::on_sender_detach([[maybe_unused]] proton::sender& _sender)
+	{
+		// clang-format off
+		log_re::trace({
+			{"rule_engine_plugin", rule_engine_name},
+			{"instance_name", re_instance_name_},
+			{"call", __PRETTY_FUNCTION__},
+		});
+		// clang-format on
+	}
+
+	void amqp_sender::on_sender_close([[maybe_unused]] proton::sender& _sender)
+	{
+		// clang-format off
+		log_re::trace({
+			{"rule_engine_plugin", rule_engine_name},
+			{"instance_name", re_instance_name_},
+			{"call", __PRETTY_FUNCTION__},
+		});
+		// clang-format on
+	}
+
+	void amqp_sender::on_tracker_accept([[maybe_unused]] proton::tracker& _tracker)
+	{
+		// clang-format off
+		log_re::trace({
+			{"rule_engine_plugin", rule_engine_name},
+			{"instance_name", re_instance_name_},
+			{"call", __PRETTY_FUNCTION__},
+		});
+		// clang-format on
+	}
+
+	void amqp_sender::on_tracker_release([[maybe_unused]] proton::tracker& _tracker)
+	{
+		// clang-format off
+		log_re::trace({
+			{"rule_engine_plugin", rule_engine_name},
+			{"instance_name", re_instance_name_},
+			{"call", __PRETTY_FUNCTION__},
+		});
+		// clang-format on
+	}
+
+	void amqp_sender::on_tracker_settle([[maybe_unused]] proton::tracker& _tracker)
+	{
+		// clang-format off
+		log_re::trace({
+			{"rule_engine_plugin", rule_engine_name},
+			{"instance_name", re_instance_name_},
+			{"call", __PRETTY_FUNCTION__},
+		});
+		// clang-format on
+	}
+
+	void amqp_sender::on_sender_drain_start([[maybe_unused]] proton::sender& _sender)
+	{
+		// clang-format off
+		log_re::trace({
+			{"rule_engine_plugin", rule_engine_name},
+			{"instance_name", re_instance_name_},
+			{"call", __PRETTY_FUNCTION__},
+		});
+		// clang-format on
+	}
+
+	void amqp_sender::on_connection_wake([[maybe_unused]] proton::connection& _connection)
+	{
+		// clang-format off
+		log_re::trace({
+			{"rule_engine_plugin", rule_engine_name},
+			{"instance_name", re_instance_name_},
+			{"call", __PRETTY_FUNCTION__},
+		});
+		// clang-format on
+	}
+#endif // IRODS_AUDIT_EXTRA_TRACE
 } //namespace irods::plugin::rule_engine::audit_amqp

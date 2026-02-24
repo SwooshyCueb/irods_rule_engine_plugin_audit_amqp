@@ -3,12 +3,12 @@
 
 #include "irods/private/audit_amqp.hpp"
 
-#include <string>
-
 #include <boost/archive/iterators/base64_from_binary.hpp>
 #include <boost/archive/iterators/transform_width.hpp>
 
 #include <nlohmann/json.hpp>
+
+#include <string>
 
 namespace irods::plugin::rule_engine::audit_amqp
 {

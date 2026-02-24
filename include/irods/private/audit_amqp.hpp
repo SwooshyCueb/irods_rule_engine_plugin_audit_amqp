@@ -6,8 +6,6 @@
 #include <chrono>
 #include <string>
 
-#include <boost/config.hpp>
-
 namespace irods::plugin::rule_engine::audit_amqp
 {
 	static inline constexpr const char* const rule_engine_name = "audit_amqp";
@@ -23,18 +21,36 @@ namespace irods::plugin::rule_engine::audit_amqp
 	using ts_clock = std::chrono::system_clock;
 #endif
 
-	template <class T>
-	static BOOST_FORCEINLINE void log_exception(
-		const T& exception,
-		const std::string& log_message,
-		const irods::experimental::log::key_value& context_info)
+	template <class Logger>
+	void log_exception(const Logger& _logger,
+	                   const std::string& _log_message,
+	                   const std::string& _e_what,
+	                   const std::string& _instance_name,
+	                   const std::string& _rule_name)
 	{
 		// clang-format off
-		log_re::info({
+		_logger({
 			{"rule_engine_plugin", rule_engine_name},
-			{"log_message", log_message},
-			context_info,
-			{"exception", exception.what()},
+			{"instance_name", _instance_name},
+			{"rule_name", _rule_name},
+			{"log_message", _log_message},
+			{"exception", _e_what},
+		});
+		// clang-format on
+	}
+
+	template <class Logger>
+	void log_exception(const Logger& _logger,
+	                   const std::string& _log_message,
+	                   const std::string& _e_what,
+	                   const std::string& _instance_name)
+	{
+		// clang-format off
+		_logger({
+			{"rule_engine_plugin", rule_engine_name},
+			{"instance_name", _instance_name},
+			{"log_message", _log_message},
+			{"exception", _e_what},
 		});
 		// clang-format on
 	}
