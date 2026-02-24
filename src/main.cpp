@@ -214,17 +214,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		return ERROR(SYS_INVALID_INPUT_PARAM, "failed to find plugin configuration");
 	}
 
-	static auto setup(irods::default_re_ctx& _re_ctx, const std::string& _instance_name) -> irods::error
-	{
-		return SUCCESS();
-	} // setup
-
-	static auto teardown(irods::default_re_ctx& _re_ctx, const std::string& _instance_name) -> irods::error
-	{
-		return SUCCESS();
-	} // teardown
-
-	static auto start([[maybe_unused]] irods::default_re_ctx& _re_ctx, const std::string& _instance_name)
+	static auto setup([[maybe_unused]] irods::default_re_ctx& _re_ctx, const std::string& _instance_name)
 		-> irods::error
 	{
 		std::lock_guard<std::mutex> lock(audit_plugin_mutex);
@@ -240,6 +230,19 @@ namespace irods::plugin::rule_engine::audit_amqp
 			});
 			// clang-format on
 		}
+
+		return PASSMSG("Error loading plugin configuration", ret);
+	} // setup
+
+	static auto teardown(irods::default_re_ctx& _re_ctx, const std::string& _instance_name) -> irods::error
+	{
+		return SUCCESS();
+	} // teardown
+
+	static auto start([[maybe_unused]] irods::default_re_ctx& _re_ctx, const std::string& _instance_name)
+		-> irods::error
+	{
+		std::lock_guard<std::mutex> lock(audit_plugin_mutex);
 
 		nlohmann::json json_obj;
 
