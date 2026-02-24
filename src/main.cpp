@@ -76,12 +76,14 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// NOLINTBEGIN(cert-err58-cpp, cppcoreguidelines-avoid-non-const-global-variables)
 		const std::string_view default_pep_regex_to_match{"pep_.+"};
 		const std::string_view default_amqp_url{"localhost:5672/irods_audit_messages"};
+		const bool default_amqp_durable_messages = true;
 
 		const fs::path default_log_path_prefix{fs::temp_directory_path()};
 		const bool default_test_mode = false;
 
 		std::string audit_pep_regex_to_match;
 		std::string audit_amqp_url;
+		bool amqp_durable_messages;
 
 		fs::path log_path_prefix;
 		bool test_mode;
@@ -103,6 +105,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 	{
 		audit_pep_regex_to_match = default_pep_regex_to_match;
 		audit_amqp_url = default_amqp_url;
+		amqp_durable_messages = default_amqp_durable_messages;
 		test_mode = default_test_mode;
 		log_path_prefix = default_log_path_prefix;
 
@@ -141,14 +144,30 @@ namespace irods::plugin::rule_engine::audit_amqp
 				const auto& amqp_location = plugin_spec_cfg.at("amqp_location").get_ref<const std::string&>();
 				audit_amqp_url = fmt::format(FMT_STRING("{0:s}/{1:s}"), amqp_location, amqp_topic);
 
+				// amqp_durable_messages is optional
+				const auto amqp_durable_messages_cfg = plugin_spec_cfg.find("amqp_durable_messages");
+				if (amqp_durable_messages_cfg == plugin_spec_cfg.end()) {
+					amqp_durable_messages = default_amqp_durable_messages;
+				}
+				else if (amqp_durable_messages_cfg->is_string()) {
+					const auto& amqp_durable_messages_str = amqp_durable_messages_cfg->get_ref<const std::string&>();
+					amqp_durable_messages = boost::iequals(amqp_durable_messages_str, "true");
+				}
+				else {
+					amqp_durable_messages = amqp_durable_messages_cfg->get<bool>();
+				}
+
 				// test_mode is optional
 				const auto test_mode_cfg = plugin_spec_cfg.find("test_mode");
 				if (test_mode_cfg == plugin_spec_cfg.end()) {
 					test_mode = default_test_mode;
 				}
-				else {
+				else if (test_mode_cfg->is_string()) {
 					const auto& test_mode_str = test_mode_cfg->get_ref<const std::string&>();
 					test_mode = boost::iequals(test_mode_str, "true");
+				}
+				else {
+					test_mode = test_mode_cfg->get<bool>();
 				}
 
 				// log_path_prefix is optional
@@ -271,6 +290,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			proton::message msg(msg_str);
 			msg.content_type("application/json");
 			msg.creation_time(proton::timestamp(static_cast<proton::timestamp::numeric_type>(time_ms)));
+			msg.durable(amqp_durable_messages);
 			send_handler handler(msg, audit_amqp_url);
 			proton::container(handler).run();
 		}
@@ -319,6 +339,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			proton::message msg(msg_str);
 			msg.content_type("application/json");
 			msg.creation_time(proton::timestamp(static_cast<proton::timestamp::numeric_type>(time_ms)));
+			msg.durable(amqp_durable_messages);
 			send_handler handler(msg, audit_amqp_url);
 			proton::container(handler).run();
 		}
@@ -468,6 +489,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			proton::message msg(msg_str);
 			msg.content_type("application/json");
 			msg.creation_time(proton::timestamp(static_cast<proton::timestamp::numeric_type>(time_ms)));
+			msg.durable(amqp_durable_messages);
 			send_handler handler(msg, audit_amqp_url);
 			proton::container(handler).run();
 		}

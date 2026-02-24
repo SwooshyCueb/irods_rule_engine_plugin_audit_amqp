@@ -8,13 +8,14 @@ def main():
             {
                 "instance_name": "irods_rule_engine_plugin-audit_amqp-instance",
                 "plugin_name": "irods_rule_engine_plugin-audit_amqp",
-                "plugin_specific_configuration" : {
-                     "amqp_location" : "ANONYMOUS@localhost:5672",
-                     "amqp_topic" : "audit_messages",
-                     "log_path_prefix": "/tmp/irods",
-                     "pep_regex_to_match" : "audit_.*",
-                     "test_mode": "true"
-                 }
+                "plugin_specific_configuration": {
+                    "pep_regex_to_match": "audit_.*",
+                    "amqp_location": "ANONYMOUS@localhost:5672",
+                    "amqp_topic": "audit_messages",
+                    "amqp_durable_messages": True,
+                    "test_mode": True,
+                    "log_path_prefix": "/tmp/irods"
+                }
             }
         )
     irods_config.server_config["rule_engine_namespaces"].append("audit_")
