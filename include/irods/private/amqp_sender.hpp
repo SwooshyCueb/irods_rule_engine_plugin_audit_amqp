@@ -36,7 +36,10 @@ namespace irods::plugin::rule_engine::audit_amqp
 		~amqp_sender() override;
 
 		irods::error configure(const std::string& _re_instance_name,
-		                       const std::string& _url,
+		                       const std::string& _endpoint,
+		                       const std::string& _path,
+		                       const std::string& _user,
+		                       const std::string& _password,
 		                       const std::optional<bool> _sasl_enabled,
 		                       const std::optional<std::string> _sasl_mechanisms,
 		                       const std::optional<bool> _sasl_allow_insecure,
@@ -89,7 +92,10 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 		std::string re_instance_name_;
 
-		std::string url_;
+		std::string endpoint_;
+		std::string path_;
+		std::string user_;
+		std::string password_;
 		std::optional<bool> sasl_enabled_;
 		std::optional<std::string> sasl_mechanisms_;
 		std::optional<bool> sasl_allow_insecure_;
