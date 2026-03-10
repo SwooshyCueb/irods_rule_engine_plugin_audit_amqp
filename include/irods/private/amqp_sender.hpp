@@ -36,6 +36,9 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 		irods::error configure(const std::string& re_instance_name,
 		                       const std::string& url,
+		                       const std::string& node,
+		                       const std::string& user,
+		                       const std::string& password,
 		                       const std::optional<bool> durable_messages);
 		irods::error unconfigure();
 
@@ -90,7 +93,10 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 		std::string _re_instance_name;
 
-		std::string _amqp_url;
+		std::string _url;
+		std::string _node;
+		std::string _user;
+		std::string _password;
 		std::optional<bool> _durable_messages;
 
 		std::mutex _proton_mutex;

@@ -43,6 +43,8 @@
 
 #include <nlohmann/json.hpp>
 
+#include <proton/url.hpp>
+
 // filesystem
 // clang-format off
 #ifdef __cpp_lib_filesystem
@@ -66,26 +68,35 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 		// NOLINTBEGIN(cert-err58-cpp, cppcoreguidelines-avoid-non-const-global-variables)
 		const std::string_view default_pep_regex_to_match{"pep_.+"};
-		const std::string_view default_amqp_url{"localhost:5672/irods_audit_messages"};
+		const std::string_view default_amqp_url{"amqp://localhost:5672"};
+		const std::string_view default_amqp_node{"irods_audit_messages"};
+		const std::string_view default_amqp_user{};
+		const std::string_view default_amqp_password{};
 		const bool default_amqp_durable_messages = true;
+
+		const std::string_view default_amqp_scheme{"amqp"};
+		const std::uint_fast16_t default_amqp_port = 5672;
+		const std::uint_fast16_t default_amqps_port = 5671;
 
 		const fs::path default_log_path_prefix{fs::temp_directory_path()};
 		const bool default_test_mode = false;
 
 		std::string audit_pep_regex_to_match;
-		std::string audit_amqp_url;
+
+		std::string amqp_url;
+		std::string amqp_node;
+		std::string amqp_user;
+		std::string amqp_password;
 		bool amqp_durable_messages;
 
 		fs::path log_path_prefix;
 		bool test_mode;
 
-		bool warned_amqp_options = false;
-
 		// audit_pep_regex is initially populated with an unoptimized default, as optimization
 		// makes construction slower, and we don't expect it to be used before configuration is read.
 		std::regex audit_pep_regex{audit_pep_regex_to_match, pep_regex_flavor};
 
-		amqp_sender audit_amqp_sender{};
+		amqp_sender audit_amqp_sender;
 
 		fs::path log_file_path;
 		std::ofstream log_file_ofstream;
@@ -95,7 +106,10 @@ namespace irods::plugin::rule_engine::audit_amqp
 		BOOST_FORCEINLINE void set_default_configs()
 		{
 			audit_pep_regex_to_match = default_pep_regex_to_match;
-			audit_amqp_url = default_amqp_url;
+			amqp_url = default_amqp_url;
+			amqp_node = default_amqp_node;
+			amqp_user = default_amqp_user;
+			amqp_password = default_amqp_password;
 			amqp_durable_messages = default_amqp_durable_messages;
 			test_mode = default_test_mode;
 			log_path_prefix = default_log_path_prefix;
@@ -167,9 +181,245 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 				audit_pep_regex_to_match = plugin_spec_cfg.at("pep_regex_to_match").get<std::string>();
 
-				const auto& amqp_topic = plugin_spec_cfg.at("amqp_topic").get_ref<const std::string&>();
-				const auto& amqp_location = plugin_spec_cfg.at("amqp_location").get_ref<const std::string&>();
-				audit_amqp_url = fmt::format(FMT_COMPILE("{0:s}/{1:s}"), amqp_location, amqp_topic);
+				bool found_endpoint = false;
+				const auto amqp_endpoint_cfg = plugin_spec_cfg.find("amqp_endpoint");
+				if (amqp_endpoint_cfg != plugin_spec_cfg.end()) {
+					const auto& endpoint_cfg = *amqp_endpoint_cfg;
+
+					const auto scheme_cfg = endpoint_cfg.find("scheme");
+					// clang-format off
+					const auto& scheme = scheme_cfg == endpoint_cfg.end()
+						? default_amqp_scheme
+						: scheme_cfg->get_ref<const std::string&>();
+					// clang-format on
+
+					const auto& host = endpoint_cfg.at("host").get_ref<const std::string&>();
+
+					const auto port_cfg = endpoint_cfg.find("port");
+					std::uint_fast16_t port;
+					if (port_cfg == endpoint_cfg.end()) {
+						if (scheme == "amqp") {
+							port = default_amqp_port;
+						}
+						else if (scheme == "amqps") {
+							port = default_amqps_port;
+						}
+						else {
+							// clang-format off
+							log_re::error({
+								{"rule_engine_plugin", rule_engine_name},
+								{"instance_name", _instance_name},
+								{"log_message", "Cannot derive port number from scheme."},
+								{"scheme", std::string(scheme)},
+							});
+							// clang-format on
+							return ERROR(CONFIGURATION_ERROR, "Cannot derive AMQP port number from AMQP endpoint.");
+						}
+					}
+					else {
+						const auto& port_val = port_cfg->get_ref<const nlohmann::json::number_unsigned_t&>();
+						if (port_val > UINT16_MAX) {
+							// clang-format off
+							log_re::error({
+								{"rule_engine_plugin", rule_engine_name},
+								{"instance_name", _instance_name},
+								{"log_message", "AMQP endpoint port must not exceed 65535."},
+								{"port", std::to_string(port_val)}
+							});
+							// clang-format on
+							return ERROR(CONFIGURATION_ERROR, "AMQP endpoint port greater than 65535.");
+						}
+						port = static_cast<std::uint_fast16_t>(port_val);
+					}
+
+					amqp_url = fmt::format(FMT_COMPILE("{0:s}://{1:s}:{2:d}"), scheme, host, port);
+					found_endpoint = true;
+				}
+
+				bool found_user = false;
+				const auto user_cfg = plugin_spec_cfg.find("amqp_user");
+				if (user_cfg == plugin_spec_cfg.end()) {
+					amqp_user = default_amqp_user;
+				}
+				else {
+					amqp_user = user_cfg->get_ref<const std::string&>();
+					found_user = true;
+				}
+
+				bool found_password = false;
+				const auto password_cfg = plugin_spec_cfg.find("amqp_password");
+				if (password_cfg == plugin_spec_cfg.end()) {
+					amqp_password = default_amqp_password;
+				}
+				else {
+					amqp_password = password_cfg->get_ref<const std::string&>();
+					found_password = true;
+				}
+
+				// check amqp_location
+				const auto amqp_location_cfg = plugin_spec_cfg.find("amqp_location");
+				if (amqp_location_cfg == plugin_spec_cfg.end()) {
+					if (!found_endpoint) {
+						// clang-format off
+						log_re::error({
+							{"rule_engine_plugin", rule_engine_name},
+							{"instance_name", _instance_name},
+							{"log_message", "amqp_endpoint not present in rule engine configuration."}
+						});
+						// clang-format on
+						return ERROR(CONFIGURATION_ERROR, "amqp_endpoint not present in rule engine configuration.");
+					}
+				}
+				else {
+					// clang-format off
+					log_re::warn({
+						{"rule_engine_plugin", rule_engine_name},
+						{"instance_name", _instance_name},
+						{"log_message", "Found amqp_location configuration setting. This setting has been deprecated "
+						                "in favor of amqp_endpoint, amqp_user, and amqp_password and will be ignored "
+						                "ignored in future versions of the plugin."}
+					});
+					// clang-format on
+
+					const auto& amqp_location = amqp_location_cfg->get_ref<const std::string&>();
+
+					// TODO: Use Boost.URL instead, once it's available
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+					const proton::url proton_url(amqp_location, false);
+#pragma GCC diagnostic pop
+
+					if (found_endpoint) {
+						// clang-format off
+						log_re::info({
+							{"rule_engine_plugin", rule_engine_name},
+							{"instance_name", _instance_name},
+							{"log_message", "Ignoring location from amqp_location in favor of amqp_endpoint."},
+						});
+						// clang-format on
+					}
+					else {
+						std::string scheme = proton_url.scheme();
+						if (scheme.empty()) {
+							scheme = default_amqp_scheme;
+						}
+
+						std::string host = proton_url.host();
+						if (host.empty()) {
+							// clang-format off
+							log_re::error({
+								{"rule_engine_plugin", rule_engine_name},
+								{"instance_name", _instance_name},
+								{"log_message", "Could not get host from amqp_location"},
+								{"amqp_location", amqp_location},
+							});
+							// clang-format on
+							return ERROR(CONFIGURATION_ERROR, "Cannot derive AMQP endpoint host from amqp_location.");
+						}
+
+						std::uint_fast16_t port;
+						if (proton_url.port().empty()) {
+							if (scheme == "amqp") {
+								port = default_amqp_port;
+							}
+							else if (scheme == "amqps") {
+								port = default_amqps_port;
+							}
+							else {
+								// clang-format off
+								log_re::error({
+									{"rule_engine_plugin", rule_engine_name},
+									{"instance_name", _instance_name},
+									{"log_message", "Cannot derive AMQP port number from scheme."},
+									{"scheme", scheme},
+								});
+								// clang-format on
+								return ERROR(CONFIGURATION_ERROR, "Cannot derive port number for AMQP endpoint.");
+							}
+						}
+						else {
+							port = static_cast<std::uint_fast16_t>(proton_url.port_int());
+						}
+
+						amqp_url = fmt::format(FMT_COMPILE("{0:s}://{1:s}:{2:d}"), scheme, host, port);
+					}
+
+					if (!proton_url.user().empty()) {
+						if (found_user) {
+							// clang-format off
+							log_re::info({
+								{"rule_engine_plugin", rule_engine_name},
+								{"instance_name", _instance_name},
+								{"log_message", "Ignoring credentials from amqp_location in favor of amqp_user and "
+								                "amqp_password."},
+							});
+							// clang-format on
+						}
+						else {
+							amqp_user = proton_url.user();
+							if (!proton_url.password().empty()) {
+								if (found_password) {
+									// clang-format off
+									log_re::info({
+										{"rule_engine_plugin", rule_engine_name},
+										{"instance_name", _instance_name},
+										{"log_message", "Ignoring password from amqp_location in favor of "
+										                "amqp_password."},
+									});
+									// clang-format on
+								}
+								else {
+									amqp_password = proton_url.password();
+								}
+							}
+						}
+					}
+				}
+
+				bool found_node = false;
+				const auto amqp_node_cfg = plugin_spec_cfg.find("amqp_node");
+				if (amqp_node_cfg != plugin_spec_cfg.end()) {
+					amqp_node = amqp_node_cfg->get_ref<const std::string&>();
+					found_node = true;
+				}
+
+				// check amqp_topic
+				const auto amqp_topic_cfg = plugin_spec_cfg.find("amqp_topic");
+				if (amqp_topic_cfg == plugin_spec_cfg.end()) {
+					if (!found_node) {
+						// clang-format off
+						log_re::error({
+							{"rule_engine_plugin", rule_engine_name},
+							{"instance_name", _instance_name},
+							{"log_message", "amqp_node not present in rule engine configuration."}
+						});
+						// clang-format on
+						return ERROR(CONFIGURATION_ERROR, "amqp_node not present in rule engine configuration.");
+					}
+				}
+				else {
+					// clang-format off
+					log_re::warn({
+						{"rule_engine_plugin", rule_engine_name},
+						{"instance_name", _instance_name},
+						{"log_message", "Found amqp_topic configuration setting. This setting has been deprecated in "
+						                "favor of amqp_node and will be ignored in future versions of the plugin."}
+					});
+					// clang-format on
+
+					if (found_node) {
+						// clang-format off
+						log_re::info({
+							{"rule_engine_plugin", rule_engine_name},
+							{"instance_name", _instance_name},
+							{"log_message", "Ignoring amqp_topic in favor of amqp_node."},
+						});
+						// clang-format on
+					}
+					else {
+						amqp_node = amqp_topic_cfg->get_ref<const std::string&>();
+					}
+				}
 
 				// amqp_durable_messages is optional
 				const auto amqp_durable_messages_cfg = plugin_spec_cfg.find("amqp_durable_messages");
@@ -208,7 +458,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 				// look for amqp_options and log a warning if it is present
 				const auto amqp_options_cfg = plugin_spec_cfg.find("amqp_options");
-				if (amqp_options_cfg != plugin_spec_cfg.end() && !warned_amqp_options) {
+				if (amqp_options_cfg != plugin_spec_cfg.end()) {
 					// clang-format off
 					log_re::warn({
 						{"rule_engine_plugin", rule_engine_name},
@@ -217,7 +467,6 @@ namespace irods::plugin::rule_engine::audit_amqp
 						                "should be removed from the plugin configuration."},
 					});
 					// clang-format on
-					warned_amqp_options = true;
 				}
 
 				audit_pep_regex = std::regex(audit_pep_regex_to_match, pep_regex_flavor | std::regex::optimize);
@@ -267,7 +516,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 			return PASSMSG("Error loading plugin configuration", ret);
 		}
 
-		ret = audit_amqp_sender.configure(_instance_name, audit_amqp_url, amqp_durable_messages);
+		ret = audit_amqp_sender.configure(
+			_instance_name, amqp_url, amqp_node, amqp_user, amqp_password, amqp_durable_messages);
 		if (!ret.ok()) {
 			// clang-format off
 			log_re::error({

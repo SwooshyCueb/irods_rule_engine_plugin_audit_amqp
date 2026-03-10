@@ -48,6 +48,9 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 	irods::error amqp_sender::configure(const std::string& re_instance_name,
 	                                    const std::string& url,
+	                                    const std::string& node,
+	                                    const std::string& user,
+	                                    const std::string& password,
 	                                    const std::optional<bool> durable_messages)
 	{
 		if (_is_open) {
@@ -64,12 +67,16 @@ namespace irods::plugin::rule_engine::audit_amqp
 			{"instance_name", re_instance_name},
 			{"call", __PRETTY_FUNCTION__},
 			{"url", url},
+			{"node", node},
 		});
 		#endif
 		// clang-format on
 
 		_re_instance_name = re_instance_name;
-		_amqp_url = url;
+		_url = url;
+		_node = node;
+		_user = user;
+		_password = password;
 		_durable_messages = durable_messages;
 
 		_is_configured = true;
@@ -122,6 +129,12 @@ namespace irods::plugin::rule_engine::audit_amqp
 		proton::reconnect_options reconn_opts;
 		conn_opts.handler(*this);
 		conn_opts.reconnect(reconn_opts);
+		if (!_user.empty()) {
+			conn_opts.user(_user);
+		}
+		if (!_password.empty()) {
+			conn_opts.password(_password);
+		}
 
 		proton::sender_options sender_opts;
 		proton::target_options target_opts;
@@ -269,8 +282,14 @@ namespace irods::plugin::rule_engine::audit_amqp
 		proton::reconnect_options reconn_opts;
 		conn_opts.handler(*this);
 		conn_opts.reconnect(reconn_opts);
+		if (!_user.empty()) {
+			conn_opts.user(_user);
+		}
+		if (!_password.empty()) {
+			conn_opts.password(_password);
+		}
 
-		container.connect(_amqp_url, conn_opts);
+		container.connect(_url, conn_opts);
 	}
 
 	void amqp_sender::on_connection_open([[maybe_unused]] proton::connection& connection)
@@ -292,7 +311,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		sender_opts.handler(*this);
 		sender_opts.target(target_opts);
 
-		connection.open_sender(_amqp_url, sender_opts);
+		connection.open_sender(_node, sender_opts);
 	}
 
 	void amqp_sender::on_sender_open([[maybe_unused]] proton::sender& sender)
