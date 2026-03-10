@@ -36,6 +36,9 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 		irods::error configure(const std::string& _re_instance_name,
 		                       const std::string& _url,
+		                       const std::optional<bool> _sasl_enabled,
+		                       const std::optional<std::string> _sasl_mechanisms,
+		                       const std::optional<bool> _sasl_allow_insecure,
 		                       const std::optional<bool> _durable_messages);
 		irods::error unconfigure();
 
@@ -85,6 +88,9 @@ namespace irods::plugin::rule_engine::audit_amqp
 		std::string re_instance_name_;
 
 		std::string url_;
+		std::optional<bool> sasl_enabled_;
+		std::optional<std::string> sasl_mechanisms_;
+		std::optional<bool> sasl_allow_insecure_;
 		std::optional<bool> durable_messages_;
 
 		std::optional<std::thread> proton_thread_;

@@ -42,6 +42,10 @@ Add a new stanza to the "rule_engines" array within `server_config.json`:
         "pep_regex_to_match": "pep_.+",
         "amqp_location": "ANONYMOUS@localhost:5672",
         "amqp_topic": "audit_messages",
+        "amqp_sasl": {
+            "enable": true,
+            "allow_insecure": true
+        },
         "amqp_durable_messages": true
     }
 }

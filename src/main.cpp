@@ -35,7 +35,9 @@
 #include <iostream>
 #include <list>
 #include <map>
+#include <optional>
 #include <regex>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -67,6 +69,9 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// NOLINTBEGIN(cert-err58-cpp, cppcoreguidelines-avoid-non-const-global-variables)
 		const std::string_view default_pep_regex_to_match{"pep_.+"};
 		const std::string_view default_amqp_url{"localhost:5672/irods_audit_messages"};
+		const std::optional<bool> amqp_sasl_enabled_default = std::nullopt;
+		const std::optional<std::string> amqp_sasl_mechanisms_default = std::nullopt;
+		const std::optional<bool> amqp_sasl_allow_insecure_default = std::nullopt;
 		const bool default_amqp_durable_messages = true;
 
 		const fs::path default_log_path_prefix{fs::temp_directory_path()};
@@ -74,6 +79,10 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 		std::string audit_pep_regex_to_match;
 		std::string audit_amqp_url;
+
+		std::optional<bool> amqp_sasl_enabled;
+		std::optional<std::string> amqp_sasl_mechanisms;
+		std::optional<bool> amqp_sasl_allow_insecure;
 		bool amqp_durable_messages;
 
 		fs::path log_path_prefix;
@@ -96,6 +105,9 @@ namespace irods::plugin::rule_engine::audit_amqp
 		{
 			audit_pep_regex_to_match = default_pep_regex_to_match;
 			audit_amqp_url = default_amqp_url;
+			amqp_sasl_enabled = amqp_sasl_enabled_default;
+			amqp_sasl_mechanisms = amqp_sasl_mechanisms_default;
+			amqp_sasl_allow_insecure = amqp_sasl_allow_insecure_default;
 			amqp_durable_messages = default_amqp_durable_messages;
 			test_mode = default_test_mode;
 			log_path_prefix = default_log_path_prefix;
@@ -166,6 +178,48 @@ namespace irods::plugin::rule_engine::audit_amqp
 				const auto& amqp_topic = plugin_spec_cfg.at("amqp_topic").get_ref<const std::string&>();
 				const auto& amqp_location = plugin_spec_cfg.at("amqp_location").get_ref<const std::string&>();
 				audit_amqp_url = fmt::format(FMT_COMPILE("{0:s}/{1:s}"), amqp_location, amqp_topic);
+
+				const auto amqp_sasl_cfg = plugin_spec_cfg.find("amqp_sasl");
+				if (amqp_sasl_cfg == plugin_spec_cfg.end()) {
+					amqp_sasl_enabled = amqp_sasl_enabled_default;
+					amqp_sasl_mechanisms = amqp_sasl_mechanisms_default;
+					amqp_sasl_allow_insecure = amqp_sasl_allow_insecure_default;
+				}
+				else {
+					const auto& sasl_cfg = *amqp_sasl_cfg;
+
+					const auto sasl_enabled_cfg = sasl_cfg.find("enable");
+					if (sasl_enabled_cfg == sasl_cfg.end()) {
+						amqp_sasl_enabled = amqp_sasl_enabled_default;
+					}
+					else {
+						amqp_sasl_enabled = sasl_enabled_cfg->get<bool>();
+					}
+					const auto mechanisms_cfg = sasl_cfg.find("mechanisms");
+					if (mechanisms_cfg == sasl_cfg.end()) {
+						amqp_sasl_mechanisms = amqp_sasl_mechanisms_default;
+					}
+					else if (mechanisms_cfg->is_array()) {
+						const auto& mechanisms_arr = mechanisms_cfg->get_ref<const nlohmann::json::array_t&>();
+						if (mechanisms_arr.empty()) {
+							amqp_sasl_mechanisms = "";
+						}
+						auto mechanisms_itr = mechanisms_arr.begin();
+						std::stringstream mechanisms_ss;
+						mechanisms_ss << mechanisms_itr->get_ref<const std::string&>();
+						while (++mechanisms_itr != mechanisms_arr.end()) {
+							mechanisms_ss << ' ' << mechanisms_itr->get_ref<const std::string&>();
+						}
+						amqp_sasl_mechanisms = mechanisms_ss.str();
+					}
+					else {
+						amqp_sasl_mechanisms = mechanisms_cfg->get_ref<const std::string&>();
+					}
+					const auto sasl_allow_insecure_cfg = sasl_cfg.find("allow_insecure");
+					if (sasl_allow_insecure_cfg != sasl_cfg.end()) {
+						amqp_sasl_allow_insecure = sasl_allow_insecure_cfg->get<bool>();
+					}
+				}
 
 				// amqp_durable_messages is optional
 				const auto amqp_durable_messages_cfg = plugin_spec_cfg.find("amqp_durable_messages");
@@ -265,7 +319,12 @@ namespace irods::plugin::rule_engine::audit_amqp
 			return PASSMSG("Error loading plugin configuration", ret);
 		}
 
-		ret = audit_amqp_sender.configure(_instance_name, audit_amqp_url, amqp_durable_messages);
+		ret = audit_amqp_sender.configure(_instance_name,
+		                                  audit_amqp_url,
+		                                  amqp_sasl_enabled,
+		                                  amqp_sasl_mechanisms,
+		                                  amqp_sasl_allow_insecure,
+		                                  amqp_durable_messages);
 		if (!ret.ok()) {
 			// clang-format off
 			log_re::error({
