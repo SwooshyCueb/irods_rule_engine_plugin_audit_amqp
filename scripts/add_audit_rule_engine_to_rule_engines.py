@@ -16,6 +16,7 @@ def main():
                         "enable": True,
                         "allow_insecure": True
                     },
+                    "amqp_sender_durability_mode": "UNSETTLED_STATE",
                     "amqp_durable_messages": True,
                     "test_mode": True,
                     "log_path_prefix": "/tmp/irods"

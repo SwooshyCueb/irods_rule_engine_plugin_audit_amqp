@@ -21,6 +21,7 @@
 #include <proton/sender.hpp>
 #include <proton/sender_options.hpp>
 #include <proton/session.hpp>
+#include <proton/target.hpp>
 #include <proton/target_options.hpp>
 #include <proton/timestamp.hpp>
 #include <proton/tracker.hpp>
@@ -55,6 +56,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 	                                    const std::optional<bool> _sasl_enabled,
 	                                    const std::optional<std::string> _sasl_mechanisms,
 	                                    const std::optional<bool> _sasl_allow_insecure,
+	                                    const std::optional<enum proton::target::durability_mode> _sender_durability_mode,
 	                                    const std::optional<bool> _durable_messages)
 	{
 		if (is_open_) {
@@ -80,6 +82,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		sasl_enabled_ = _sasl_enabled;
 		sasl_mechanisms_ = _sasl_mechanisms;
 		sasl_allow_insecure_ = _sasl_allow_insecure;
+		sender_durability_mode_ = _sender_durability_mode;
 		durable_messages_ = _durable_messages;
 
 		is_configured_ = true;
@@ -144,6 +147,9 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 		proton::sender_options sender_opts;
 		proton::target_options target_opts;
+		if (sender_durability_mode_.has_value()) {
+			target_opts.durability_mode(*sender_durability_mode_);
+		}
 		sender_opts.handler(*this);
 		sender_opts.target(target_opts);
 
@@ -425,6 +431,9 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 		proton::sender_options sender_opts;
 		proton::target_options target_opts;
+		if (sender_durability_mode_.has_value()) {
+			target_opts.durability_mode(*sender_durability_mode_);
+		}
 		sender_opts.handler(*this);
 		sender_opts.target(target_opts);
 

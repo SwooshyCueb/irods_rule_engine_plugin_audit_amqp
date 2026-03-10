@@ -13,6 +13,7 @@
 #include <proton/messaging_handler.hpp>
 #include <proton/sender.hpp>
 #include <proton/session.hpp>
+#include <proton/target.hpp>
 #include <proton/tracker.hpp>
 #include <proton/transport.hpp>
 
@@ -39,6 +40,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		                       const std::optional<bool> _sasl_enabled,
 		                       const std::optional<std::string> _sasl_mechanisms,
 		                       const std::optional<bool> _sasl_allow_insecure,
+		                       const std::optional<enum proton::target::durability_mode> _sender_durability_mode,
 		                       const std::optional<bool> _durable_messages);
 		irods::error unconfigure();
 
@@ -91,6 +93,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		std::optional<bool> sasl_enabled_;
 		std::optional<std::string> sasl_mechanisms_;
 		std::optional<bool> sasl_allow_insecure_;
+		std::optional<enum proton::target::durability_mode> sender_durability_mode_;
 		std::optional<bool> durable_messages_;
 
 		std::optional<std::thread> proton_thread_;
