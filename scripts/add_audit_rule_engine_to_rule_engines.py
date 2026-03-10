@@ -12,6 +12,10 @@ def main():
                     "pep_regex_to_match": "audit_.*",
                     "amqp_location": "ANONYMOUS@localhost:5672",
                     "amqp_topic": "audit_messages",
+                    "amqp_sasl": {
+                        "enable": True,
+                        "allow_insecure": True
+                    },
                     "amqp_durable_messages": True,
                     "test_mode": True,
                     "log_path_prefix": "/tmp/irods"

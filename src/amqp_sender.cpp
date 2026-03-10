@@ -49,6 +49,9 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 	irods::error amqp_sender::configure(const std::string& re_instance_name,
 	                                    const std::string& url,
+	                                    const std::optional<bool> sasl_enabled,
+	                                    const std::optional<std::string> sasl_mechanisms,
+	                                    const std::optional<bool> sasl_allow_insecure,
 	                                    const std::optional<bool> durable_messages)
 	{
 		if (_is_open) {
@@ -71,6 +74,9 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 		_re_instance_name = re_instance_name;
 		_url = url;
+		_sasl_enabled = sasl_enabled;
+		_sasl_mechanisms = sasl_mechanisms;
+		_sasl_allow_insecure = sasl_allow_insecure;
 		_durable_messages = durable_messages;
 
 		_is_configured = true;
@@ -123,6 +129,15 @@ namespace irods::plugin::rule_engine::audit_amqp
 		proton::reconnect_options reconn_opts;
 		conn_opts.handler(*this);
 		conn_opts.reconnect(reconn_opts);
+		if (_sasl_enabled.has_value()) {
+			conn_opts.sasl_enabled(*_sasl_enabled);
+		}
+		if (_sasl_mechanisms.has_value()) {
+			conn_opts.sasl_allowed_mechs(*_sasl_mechanisms);
+		}
+		if (_sasl_allow_insecure.has_value()) {
+			conn_opts.sasl_allow_insecure_mechs(*_sasl_allow_insecure);
+		}
 
 		proton::sender_options sender_opts;
 		proton::target_options target_opts;
@@ -270,6 +285,15 @@ namespace irods::plugin::rule_engine::audit_amqp
 		proton::reconnect_options reconn_opts;
 		conn_opts.handler(*this);
 		conn_opts.reconnect(reconn_opts);
+		if (_sasl_enabled.has_value()) {
+			conn_opts.sasl_enabled(*_sasl_enabled);
+		}
+		if (_sasl_mechanisms.has_value()) {
+			conn_opts.sasl_allowed_mechs(*_sasl_mechanisms);
+		}
+		if (_sasl_allow_insecure.has_value()) {
+			conn_opts.sasl_allow_insecure_mechs(*_sasl_allow_insecure);
+		}
 
 		container.connect(_url, conn_opts);
 	}
