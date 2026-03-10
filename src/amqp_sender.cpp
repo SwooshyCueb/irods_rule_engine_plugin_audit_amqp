@@ -49,7 +49,10 @@ namespace irods::plugin::rule_engine::audit_amqp
 	}
 
 	irods::error amqp_sender::configure(const std::string& re_instance_name,
-	                                    const std::string& url,
+	                                    const std::string& endpoint,
+	                                    const std::string& path,
+	                                    const std::string& user,
+	                                    const std::string& password,
 	                                    const std::optional<bool> sasl_enabled,
 	                                    const std::optional<std::string> sasl_mechanisms,
 	                                    const std::optional<bool> sasl_allow_insecure,
@@ -59,7 +62,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		if (_is_open) {
 			return ERROR(SYS_ALREADY_INITIALIZED, "amqp_sender::configure called on open amqp_sender");
 		}
-		if (url.empty()) {
+		if (endpoint.empty()) {
 			return ERROR(SYS_INVALID_SERVER_HOST, "amqp_sender::configure called with empty url");
 		}
 
@@ -69,13 +72,17 @@ namespace irods::plugin::rule_engine::audit_amqp
 			{"rule_engine_plugin", rule_engine_name},
 			{"instance_name", re_instance_name},
 			{"call", __PRETTY_FUNCTION__},
-			{"url", url},
+			{"endpoint", endpoint},
+			{"path", path},
 		});
 		#endif
 		// clang-format on
 
 		_re_instance_name = re_instance_name;
-		_url = url;
+		_endpoint = endpoint;
+		_path = path;
+		_user = user;
+		_password = password;
 		_sasl_enabled = sasl_enabled;
 		_sasl_mechanisms = sasl_mechanisms;
 		_sasl_allow_insecure = sasl_allow_insecure;
@@ -132,6 +139,12 @@ namespace irods::plugin::rule_engine::audit_amqp
 		proton::reconnect_options reconn_opts;
 		conn_opts.handler(*this);
 		conn_opts.reconnect(reconn_opts);
+		if (!_user.empty()) {
+			conn_opts.user(_user);
+		}
+		if (!_password.empty()) {
+			conn_opts.password(_password);
+		}
 		if (_sasl_enabled.has_value()) {
 			conn_opts.sasl_enabled(*_sasl_enabled);
 		}
@@ -291,6 +304,12 @@ namespace irods::plugin::rule_engine::audit_amqp
 		proton::reconnect_options reconn_opts;
 		conn_opts.handler(*this);
 		conn_opts.reconnect(reconn_opts);
+		if (!_user.empty()) {
+			conn_opts.user(_user);
+		}
+		if (!_password.empty()) {
+			conn_opts.password(_password);
+		}
 		if (_sasl_enabled.has_value()) {
 			conn_opts.sasl_enabled(*_sasl_enabled);
 		}
@@ -301,7 +320,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			conn_opts.sasl_allow_insecure_mechs(*_sasl_allow_insecure);
 		}
 
-		container.connect(_url, conn_opts);
+		container.connect(_endpoint, conn_opts);
 	}
 
 	void amqp_sender::on_connection_open([[maybe_unused]] proton::connection& connection)
@@ -326,7 +345,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		sender_opts.handler(*this);
 		sender_opts.target(target_opts);
 
-		connection.open_sender(_url, sender_opts);
+		connection.open_sender(_path, sender_opts);
 	}
 
 	void amqp_sender::on_sender_open([[maybe_unused]] proton::sender& sender)

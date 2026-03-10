@@ -36,9 +36,10 @@
 
 #include <unistd.h>
 
+#include <boost/algorithm/string/predicate.hpp>
 #include <boost/any.hpp>
 #include <boost/config.hpp>
-#include <boost/algorithm/string/predicate.hpp>
+#include <boost/url/url_view.hpp>
 
 #include <fmt/format.h>
 #include <fmt/compile.h>
@@ -70,7 +71,11 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 		// NOLINTBEGIN(cert-err58-cpp, cppcoreguidelines-avoid-non-const-global-variables)
 		const std::string_view default_pep_regex_to_match{"pep_.+"};
-		const std::string_view default_amqp_url{"localhost:5672/irods_audit_messages"};
+
+		const std::string_view default_amqp_endpoint{"amqp://localhost:5672"};
+		const std::string_view default_amqp_path{"queues/irods_audit_messages"};
+		const std::string_view default_amqp_user{};
+		const std::string_view default_amqp_password{};
 		const std::optional<bool> amqp_sasl_enabled_default = std::nullopt;
 		const std::optional<std::string> amqp_sasl_mechanisms_default = std::nullopt;
 		const std::optional<bool> amqp_sasl_allow_insecure_default = std::nullopt;
@@ -82,8 +87,11 @@ namespace irods::plugin::rule_engine::audit_amqp
 		const bool default_test_mode = false;
 
 		std::string audit_pep_regex_to_match;
-		std::string audit_amqp_url;
 
+		std::string amqp_endpoint;
+		std::string amqp_path;
+		std::string amqp_user;
+		std::string amqp_password;
 		std::optional<bool> amqp_sasl_enabled;
 		std::optional<std::string> amqp_sasl_mechanisms;
 		std::optional<bool> amqp_sasl_allow_insecure;
@@ -93,13 +101,11 @@ namespace irods::plugin::rule_engine::audit_amqp
 		fs::path log_path_prefix;
 		bool test_mode;
 
-		bool warned_amqp_options = false;
-
 		// audit_pep_regex is initially populated with an unoptimized default, as optimization
 		// makes construction slower, and we don't expect it to be used before configuration is read.
 		std::regex audit_pep_regex{audit_pep_regex_to_match, pep_regex_flavor};
 
-		amqp_sender audit_amqp_sender{};
+		amqp_sender audit_amqp_sender;
 
 		fs::path log_file_path;
 		std::ofstream log_file_ofstream;
@@ -109,12 +115,17 @@ namespace irods::plugin::rule_engine::audit_amqp
 		BOOST_FORCEINLINE void set_default_configs()
 		{
 			audit_pep_regex_to_match = default_pep_regex_to_match;
-			audit_amqp_url = default_amqp_url;
+
+			amqp_endpoint = default_amqp_endpoint;
+			amqp_path = default_amqp_path;
+			amqp_user = default_amqp_user;
+			amqp_password = default_amqp_password;
 			amqp_sasl_enabled = amqp_sasl_enabled_default;
 			amqp_sasl_mechanisms = amqp_sasl_mechanisms_default;
 			amqp_sasl_allow_insecure = amqp_sasl_allow_insecure_default;
 			amqp_sender_durability_mode = default_amqp_sender_durability_mode;
 			amqp_durable_messages = default_amqp_durable_messages;
+
 			test_mode = default_test_mode;
 			log_path_prefix = default_log_path_prefix;
 
@@ -185,9 +196,273 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 				audit_pep_regex_to_match = plugin_spec_cfg.at("pep_regex_to_match").get<std::string>();
 
-				const auto& amqp_topic = plugin_spec_cfg.at("amqp_topic").get_ref<const std::string&>();
-				const auto& amqp_location = plugin_spec_cfg.at("amqp_location").get_ref<const std::string&>();
-				audit_amqp_url = fmt::format(FMT_COMPILE("{0:s}/{1:s}"), amqp_location, amqp_topic);
+				bool found_endpoint = false;
+				const auto amqp_endpoint_cfg = plugin_spec_cfg.find("amqp_endpoint");
+				if (amqp_endpoint_cfg != plugin_spec_cfg.end()) {
+					const auto& endpoint_cfg = *amqp_endpoint_cfg;
+
+					std::stringstream endpoint_ss;
+
+					const auto scheme_cfg = endpoint_cfg.find("scheme");
+					if (scheme_cfg != endpoint_cfg.end()) {
+						endpoint_ss << scheme_cfg->get_ref<const std::string&>() << "://";
+					}
+
+					const auto& host = endpoint_cfg.at("host").get_ref<const std::string&>();
+					endpoint_ss << host;
+
+					const auto port_cfg = endpoint_cfg.find("port");
+					if (port_cfg != endpoint_cfg.end()) {
+						const auto& port = port_cfg->get_ref<const nlohmann::json::number_unsigned_t&>();
+						if (port > UINT16_MAX) {
+							// clang-format off
+							log_re::error({
+								{"rule_engine_plugin", rule_engine_name},
+								{"instance_name", _instance_name},
+								{"log_message", "AMQP endpoint port must not exceed 65535."},
+								{"port", std::to_string(port)}
+							});
+							// clang-format on
+							return ERROR(CONFIGURATION_ERROR, "AMQP endpoint port greater than 65535.");
+						}
+						endpoint_ss << ':' << std::to_string(port);
+					}
+
+					bool found_endpoint_params = false;
+					const auto endpoint_params_cfg = endpoint_cfg.find("parameters");
+					if (endpoint_params_cfg != endpoint_cfg.end()) {
+						const auto& endpoint_params = *endpoint_params_cfg;
+						for (const auto& [ep_key, ep_val] : endpoint_params.items()) {
+							if (found_endpoint_params) {
+								endpoint_ss << '&' << ep_key;
+							}
+							else {
+								endpoint_ss << "/?" << ep_key;
+							}
+
+							found_endpoint_params = true;
+
+							if (ep_val.is_null()) {
+								continue;
+							}
+
+							endpoint_ss << '=' << ep_val.get_ref<const std::string&>();
+						}
+					}
+
+					const auto endpoint_frag_cfg = endpoint_cfg.find("fragment");
+					if (endpoint_frag_cfg != endpoint_cfg.end()) {
+						const auto& endpoint_frag = *endpoint_frag_cfg;
+						endpoint_ss << '#';
+						if (!endpoint_frag.is_null()) {
+							endpoint_ss << endpoint_frag.get_ref<const std::string&>();
+						}
+					}
+
+					amqp_endpoint = endpoint_ss.str();
+					found_endpoint = true;
+				}
+
+				bool found_user = false;
+				const auto user_cfg = plugin_spec_cfg.find("amqp_user");
+				if (user_cfg == plugin_spec_cfg.end()) {
+					amqp_user = default_amqp_user;
+				}
+				else {
+					amqp_user = user_cfg->get_ref<const std::string&>();
+					found_user = true;
+				}
+
+				bool found_password = false;
+				const auto password_cfg = plugin_spec_cfg.find("amqp_password");
+				if (password_cfg == plugin_spec_cfg.end()) {
+					amqp_password = default_amqp_password;
+				}
+				else {
+					amqp_password = password_cfg->get_ref<const std::string&>();
+					found_password = true;
+				}
+
+				// check amqp_location
+				const auto amqp_location_cfg = plugin_spec_cfg.find("amqp_location");
+				if (amqp_location_cfg == plugin_spec_cfg.end()) {
+					if (!found_endpoint) {
+						// clang-format off
+						log_re::error({
+							{"rule_engine_plugin", rule_engine_name},
+							{"instance_name", _instance_name},
+							{"log_message", "amqp_endpoint not present in rule engine configuration."}
+						});
+						// clang-format on
+						return ERROR(CONFIGURATION_ERROR, "amqp_endpoint not present in rule engine configuration.");
+					}
+				}
+				else {
+					// clang-format off
+					log_re::warn({
+						{"rule_engine_plugin", rule_engine_name},
+						{"instance_name", _instance_name},
+						{"log_message", "Found amqp_location configuration setting. This setting has been deprecated "
+						                "in favor of amqp_endpoint, amqp_user, and amqp_password and will be ignored "
+						                "ignored in future versions of the plugin."}
+					});
+					// clang-format on
+
+					const auto& amqp_location = amqp_location_cfg->get_ref<const std::string&>();
+					const boost::urls::url_view proton_url(amqp_location);
+
+					if (found_endpoint) {
+						// clang-format off
+						log_re::info({
+							{"rule_engine_plugin", rule_engine_name},
+							{"instance_name", _instance_name},
+							{"log_message", "Ignoring location from amqp_location in favor of amqp_endpoint."},
+						});
+						// clang-format on
+					}
+					else {
+
+						if (!proton_url.has_authority()) {
+							// clang-format off
+							log_re::error({
+								{"rule_engine_plugin", rule_engine_name},
+								{"instance_name", _instance_name},
+								{"log_message", "Could not get host from amqp_location"},
+								{"amqp_location", amqp_location},
+							});
+							// clang-format on
+							return ERROR(CONFIGURATION_ERROR, "Cannot derive AMQP endpoint host from amqp_location.");
+						}
+
+						std::stringstream endpoint_ss;
+						if (proton_url.has_scheme()) {
+							endpoint_ss << proton_url.scheme() << "://";
+						}
+						endpoint_ss << proton_url.encoded_host_and_port();
+
+						if (proton_url.has_query() || proton_url.has_fragment()) {
+							endpoint_ss << '/';
+							if (proton_url.has_query()) {
+								endpoint_ss << '?' << proton_url.encoded_query();
+							}
+							if (proton_url.has_fragment()) {
+								endpoint_ss << '#' << proton_url.encoded_fragment();
+							}
+						}
+
+						amqp_endpoint = endpoint_ss.str();
+					}
+
+					if (proton_url.has_userinfo()) {
+						if (found_user) {
+							// clang-format off
+							log_re::info({
+								{"rule_engine_plugin", rule_engine_name},
+								{"instance_name", _instance_name},
+								{"log_message", "Ignoring credentials from amqp_location in favor of amqp_user and "
+								                "amqp_password."},
+							});
+							// clang-format on
+						}
+						else {
+							amqp_user = proton_url.user();
+							if (proton_url.has_password()) {
+								if (found_password) {
+									// clang-format off
+									log_re::info({
+										{"rule_engine_plugin", rule_engine_name},
+										{"instance_name", _instance_name},
+										{"log_message", "Ignoring password from amqp_location in favor of "
+										                "amqp_password."},
+									});
+									// clang-format on
+								}
+								else {
+									amqp_password = proton_url.password();
+								}
+							}
+						}
+					}
+				}
+
+				bool found_path = false;
+				std::stringstream path_ss;
+				const auto amqp_path_cfg = plugin_spec_cfg.find("amqp_path");
+				if (amqp_path_cfg != plugin_spec_cfg.end()) {
+					const auto& amqp_path_str = amqp_path_cfg->get_ref<const std::string&>();
+					if (!amqp_path_str.empty()) {
+						path_ss << '/' << amqp_path_str;
+					}
+					found_path = true;
+				}
+
+				// check amqp_topic
+				const auto amqp_topic_cfg = plugin_spec_cfg.find("amqp_topic");
+				if (amqp_topic_cfg == plugin_spec_cfg.end()) {
+					if (!found_path) {
+						// clang-format off
+						log_re::info({
+							{"rule_engine_plugin", rule_engine_name},
+							{"instance_name", _instance_name},
+							{"log_message", "amqp_path not present in rule engine configuration."}
+						});
+						// clang-format on
+					}
+				}
+				else {
+					// clang-format off
+					log_re::warn({
+						{"rule_engine_plugin", rule_engine_name},
+						{"instance_name", _instance_name},
+						{"log_message", "Found amqp_topic configuration setting. This setting has been deprecated in "
+						                "favor of amqp_path and will be ignored in future versions of the plugin."}
+					});
+					// clang-format on
+
+					if (found_path) {
+						// clang-format off
+						log_re::info({
+							{"rule_engine_plugin", rule_engine_name},
+							{"instance_name", _instance_name},
+							{"log_message", "Ignoring amqp_topic in favor of amqp_path."},
+						});
+						// clang-format on
+					}
+					else {
+						const auto& amqp_topic_str = amqp_topic_cfg->get_ref<const std::string&>();
+						if (!amqp_topic_str.empty()) {
+							path_ss << '/' << amqp_topic_str;
+						}
+					}
+				}
+
+				bool found_path_params = false;
+				const auto path_params_cfg = plugin_spec_cfg.find("amqp_path_parameters");
+				if (path_params_cfg != plugin_spec_cfg.end()) {
+					const auto& path_params = *path_params_cfg;
+					for (const auto& [pp_key, pp_val] : path_params.items()) {
+						path_ss << (found_path_params ? '&' : '?') << pp_key;
+
+						found_path_params = true;
+
+						if (pp_val.is_null()) {
+							continue;
+						}
+
+						path_ss << '=' << pp_val.get_ref<const std::string&>();
+					}
+				}
+
+				const auto path_frag_cfg = plugin_spec_cfg.find("amqp_path_fragment");
+				if (path_frag_cfg != plugin_spec_cfg.end()) {
+					const auto& path_frag = *path_frag_cfg;
+					path_ss << '#';
+					if (!path_frag.is_null()) {
+						path_ss << path_frag.get_ref<const std::string&>();
+					}
+				}
+
+				amqp_path = path_ss.str();
 
 				const auto amqp_sasl_cfg = plugin_spec_cfg.find("amqp_sasl");
 				if (amqp_sasl_cfg == plugin_spec_cfg.end()) {
@@ -298,7 +573,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 				// look for amqp_options and log a warning if it is present
 				const auto amqp_options_cfg = plugin_spec_cfg.find("amqp_options");
-				if (amqp_options_cfg != plugin_spec_cfg.end() && !warned_amqp_options) {
+				if (amqp_options_cfg != plugin_spec_cfg.end()) {
 					// clang-format off
 					log_re::warn({
 						{"rule_engine_plugin", rule_engine_name},
@@ -307,7 +582,6 @@ namespace irods::plugin::rule_engine::audit_amqp
 						                "should be removed from the plugin configuration."},
 					});
 					// clang-format on
-					warned_amqp_options = true;
 				}
 
 				audit_pep_regex = std::regex(audit_pep_regex_to_match, pep_regex_flavor | std::regex::optimize);
@@ -358,7 +632,10 @@ namespace irods::plugin::rule_engine::audit_amqp
 		}
 
 		ret = audit_amqp_sender.configure(_instance_name,
-		                                  audit_amqp_url,
+		                                  amqp_endpoint,
+		                                  amqp_path,
+		                                  amqp_user,
+		                                  amqp_password,
 		                                  amqp_sasl_enabled,
 		                                  amqp_sasl_mechanisms,
 		                                  amqp_sasl_allow_insecure,

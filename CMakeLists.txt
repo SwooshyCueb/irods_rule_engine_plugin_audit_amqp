@@ -101,6 +101,7 @@ target_link_libraries(
   fmt::fmt
   ${IRODS_EXTERNALS_FULLPATH_QPID_PROTON}/lib/libqpid-proton-cpp.so
   ${IRODS_EXTERNALS_FULLPATH_BOOST}/lib/libboost_system.so
+  ${IRODS_EXTERNALS_FULLPATH_BOOST}/lib/libboost_url.so
   ${CMAKE_DL_LIBS}
   )
 

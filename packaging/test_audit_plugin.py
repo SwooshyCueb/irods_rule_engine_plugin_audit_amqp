@@ -27,8 +27,39 @@ class TestAuditPlugin(unittest.TestCase):
         rule_engines = config["plugin_configuration"]["rule_engines"]
         for rule_engine in rule_engines:
             if rule_engine["instance_name"] == "irods_rule_engine_plugin-audit_amqp-instance":
-                self.url = rule_engine["plugin_specific_configuration"]["amqp_location"]
-                self.queue_name = rule_engine["plugin_specific_configuration"]["amqp_topic"]
+                endpoint = rule_engine["plugin_specific_configuration"]["amqp_endpoint"]
+                scheme = endpoint.get("scheme", default="")
+                scheme_post = "://" if scheme else ""
+                host = endpoint["host"]
+                port = str(endpoint.get("port", default=""))
+                port_pre = ":" if port else ""
+                e_params = "&".join([k if v is None else f"{k}={v}" for k, v in endpoint.get("parameters", default={}).items()])
+                e_parms_pre = "?" if e_params else ""
+                e_frag = ""
+                e_frag_pre = ""
+                if "fragment" in endpoint:
+                    e_frag = endpoint["fragment"]
+                    e_frag_pre = "#"
+                    e_frag = "" if e_frag is None else e_frag
+                port_post = "/" if e_params or e_frag_pre else ""
+                self.amqp_endpoint = f"{scheme}{scheme_post}{host}{port_pre}{port}{port_post}{e_params_pre}{e_params}{e_frag_pre}{p_frag}"
+
+                self.amqp_user = rule_engine.get("amqp_user", default=None)
+                self.amqp_password = rule_engine.get("amqp_password", default=None)
+
+                path = rule_engine.get("amqp_path", default=None)
+                path_pre = "" if path is None else "/"
+                path = "" if path is None else path
+                p_params = "&".join([k if v is None else f"{k}={v}" for k, v in rule_engine.get("amqp_path_parameters", default={}).items()])
+                p_parms_pre = "?" if p_params else ""
+                p_frag = ""
+                p_frag_pre = ""
+                if "amqp_path_fragment" in rule_engine:
+                    p_frag = rule_engine["amqp_path_fragment"]
+                    p_frag_pre = "#"
+                    p_frag = "" if p_frag is None else p_frag
+                self.amqp_path = f"{path_pre}{path}{p_parms_pre}{p_params}{p_frag_pre}{p_frag}"
+
                 log_directory = rule_engine["plugin_specific_configuration"]["log_path_prefix"]
 
         # Reload configuration after edits are made so that they take effect in the server.
@@ -59,7 +90,7 @@ class TestAuditPlugin(unittest.TestCase):
             # Establish communication queues
             pid_queue = multiprocessing.JoinableQueue()
             result_queue = multiprocessing.Queue()
-            listener = QueueListener(pid_queue, result_queue, self.url, self.queue_name)
+            listener = QueueListener(pid_queue, result_queue, self.amqp_endpoint, self.amqp_user, self.amqp_password, self.amqp_path)
             listener.run()
 
             print("result queue size is ", result_queue.qsize())

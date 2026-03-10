@@ -10,8 +10,13 @@ def main():
                 "plugin_name": "irods_rule_engine_plugin-audit_amqp",
                 "plugin_specific_configuration": {
                     "pep_regex_to_match": "audit_.*",
-                    "amqp_location": "ANONYMOUS@localhost:5672",
-                    "amqp_topic": "audit_messages",
+                    "amqp_endpoint": {
+                        "scheme": "amqp",
+                        "host": "localhost",
+                        "port": 5672
+                    },
+                    "amqp_user": "ANONYMOUS",
+                    "amqp_path": "queues/audit_messages",
                     "amqp_sasl": {
                         "enable": True,
                         "allow_insecure": True
