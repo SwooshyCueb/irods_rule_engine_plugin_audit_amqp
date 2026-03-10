@@ -45,6 +45,8 @@
 
 #include <nlohmann/json.hpp>
 
+#include <proton/target.hpp>
+
 // filesystem
 // clang-format off
 #ifdef __cpp_lib_filesystem
@@ -72,6 +74,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 		const std::optional<bool> amqp_sasl_enabled_default = std::nullopt;
 		const std::optional<std::string> amqp_sasl_mechanisms_default = std::nullopt;
 		const std::optional<bool> amqp_sasl_allow_insecure_default = std::nullopt;
+		const enum proton::target::durability_mode default_amqp_sender_durability_mode =
+			proton::target::durability_mode::UNSETTLED_STATE;
 		const bool default_amqp_durable_messages = true;
 
 		const fs::path default_log_path_prefix{fs::temp_directory_path()};
@@ -83,6 +87,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		std::optional<bool> amqp_sasl_enabled;
 		std::optional<std::string> amqp_sasl_mechanisms;
 		std::optional<bool> amqp_sasl_allow_insecure;
+		enum proton::target::durability_mode amqp_sender_durability_mode;
 		bool amqp_durable_messages;
 
 		fs::path log_path_prefix;
@@ -108,6 +113,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			amqp_sasl_enabled = amqp_sasl_enabled_default;
 			amqp_sasl_mechanisms = amqp_sasl_mechanisms_default;
 			amqp_sasl_allow_insecure = amqp_sasl_allow_insecure_default;
+			amqp_sender_durability_mode = default_amqp_sender_durability_mode;
 			amqp_durable_messages = default_amqp_durable_messages;
 			test_mode = default_test_mode;
 			log_path_prefix = default_log_path_prefix;
@@ -225,6 +231,36 @@ namespace irods::plugin::rule_engine::audit_amqp
 					}
 				}
 
+				const auto sender_durability_cfg = plugin_spec_cfg.find("amqp_sender_durability_mode");
+				if (sender_durability_cfg == plugin_spec_cfg.end()) {
+					amqp_sender_durability_mode = default_amqp_sender_durability_mode;
+				}
+				else {
+					const std::string& sender_durability_string = sender_durability_cfg->get_ref<const std::string&>();
+
+					if (sender_durability_string == "NONDURABLE") {
+						amqp_sender_durability_mode = proton::target::durability_mode::NONDURABLE;
+					}
+					else if (sender_durability_string == "CONFIGURATION") {
+						amqp_sender_durability_mode = proton::target::durability_mode::CONFIGURATION;
+					}
+					else if (sender_durability_string == "UNSETTLED_STATE") {
+						amqp_sender_durability_mode = proton::target::durability_mode::UNSETTLED_STATE;
+					}
+					else {
+						// clang-format off
+						log_re::error({
+							{"rule_engine_plugin", rule_engine_name},
+							{"instance_name", _instance_name},
+							{"log_message", "amqp_sender_durability_mode must be one of "
+							                "[NONDURABLE, CONFIGURATION, UNSETTLED_STATE]."},
+							{"durability_mode", sender_durability_string}
+						});
+						// clang-format on
+						return ERROR(CONFIGURATION_ERROR, "Unrecognized amqp_sender_durability_mode value.");
+					}
+				}
+
 				// amqp_durable_messages is optional
 				const auto amqp_durable_messages_cfg = plugin_spec_cfg.find("amqp_durable_messages");
 				if (amqp_durable_messages_cfg == plugin_spec_cfg.end()) {
@@ -326,6 +362,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		                                  amqp_sasl_enabled,
 		                                  amqp_sasl_mechanisms,
 		                                  amqp_sasl_allow_insecure,
+		                                  amqp_sender_durability_mode,
 		                                  amqp_durable_messages);
 		if (!ret.ok()) {
 			// clang-format off
