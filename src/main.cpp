@@ -24,7 +24,9 @@
 #include <iostream>
 #include <list>
 #include <map>
+#include <optional>
 #include <regex>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -72,6 +74,9 @@ namespace irods::plugin::rule_engine::audit_amqp
 		const std::string_view default_amqp_node{"irods_audit_messages"};
 		const std::string_view default_amqp_user{};
 		const std::string_view default_amqp_password{};
+		const std::optional<bool> amqp_sasl_enabled_default = std::nullopt;
+		const std::optional<std::string> amqp_sasl_mechanisms_default = std::nullopt;
+		const std::optional<bool> amqp_sasl_allow_insecure_default = std::nullopt;
 		const bool default_amqp_durable_messages = true;
 
 		const std::string_view default_amqp_scheme{"amqp"};
@@ -87,6 +92,9 @@ namespace irods::plugin::rule_engine::audit_amqp
 		std::string amqp_node;
 		std::string amqp_user;
 		std::string amqp_password;
+		std::optional<bool> amqp_sasl_enabled;
+		std::optional<std::string> amqp_sasl_mechanisms;
+		std::optional<bool> amqp_sasl_allow_insecure;
 		bool amqp_durable_messages;
 
 		fs::path log_path_prefix;
@@ -110,6 +118,9 @@ namespace irods::plugin::rule_engine::audit_amqp
 			amqp_node = default_amqp_node;
 			amqp_user = default_amqp_user;
 			amqp_password = default_amqp_password;
+			amqp_sasl_enabled = amqp_sasl_enabled_default;
+			amqp_sasl_mechanisms = amqp_sasl_mechanisms_default;
+			amqp_sasl_allow_insecure = amqp_sasl_allow_insecure_default;
 			amqp_durable_messages = default_amqp_durable_messages;
 			test_mode = default_test_mode;
 			log_path_prefix = default_log_path_prefix;
@@ -421,6 +432,48 @@ namespace irods::plugin::rule_engine::audit_amqp
 					}
 				}
 
+				const auto amqp_sasl_cfg = plugin_spec_cfg.find("amqp_sasl");
+				if (amqp_sasl_cfg == plugin_spec_cfg.end()) {
+					amqp_sasl_enabled = amqp_sasl_enabled_default;
+					amqp_sasl_mechanisms = amqp_sasl_mechanisms_default;
+					amqp_sasl_allow_insecure = amqp_sasl_allow_insecure_default;
+				}
+				else {
+					const auto& sasl_cfg = *amqp_sasl_cfg;
+
+					const auto sasl_enabled_cfg = sasl_cfg.find("enable");
+					if (sasl_enabled_cfg == sasl_cfg.end()) {
+						amqp_sasl_enabled = amqp_sasl_enabled_default;
+					}
+					else {
+						amqp_sasl_enabled = sasl_enabled_cfg->get<bool>();
+					}
+					const auto mechanisms_cfg = sasl_cfg.find("mechanisms");
+					if (mechanisms_cfg == sasl_cfg.end()) {
+						amqp_sasl_mechanisms = amqp_sasl_mechanisms_default;
+					}
+					else if (mechanisms_cfg->is_array()) {
+						const auto& mechanisms_arr = mechanisms_cfg->get_ref<const nlohmann::json::array_t&>();
+						if (mechanisms_arr.empty()) {
+							amqp_sasl_mechanisms = "";
+						}
+						auto mechanisms_itr = mechanisms_arr.begin();
+						std::stringstream mechanisms_ss;
+						mechanisms_ss << mechanisms_itr->get_ref<const std::string&>();
+						while (++mechanisms_itr != mechanisms_arr.end()) {
+							mechanisms_ss << ' ' << mechanisms_itr->get_ref<const std::string&>();
+						}
+						amqp_sasl_mechanisms = mechanisms_ss.str();
+					}
+					else {
+						amqp_sasl_mechanisms = mechanisms_cfg->get_ref<const std::string&>();
+					}
+					const auto sasl_allow_insecure_cfg = sasl_cfg.find("allow_insecure");
+					if (sasl_allow_insecure_cfg != sasl_cfg.end()) {
+						amqp_sasl_allow_insecure = sasl_allow_insecure_cfg->get<bool>();
+					}
+				}
+
 				// amqp_durable_messages is optional
 				const auto amqp_durable_messages_cfg = plugin_spec_cfg.find("amqp_durable_messages");
 				if (amqp_durable_messages_cfg == plugin_spec_cfg.end()) {
@@ -516,8 +569,15 @@ namespace irods::plugin::rule_engine::audit_amqp
 			return PASSMSG("Error loading plugin configuration", ret);
 		}
 
-		ret = audit_amqp_sender.configure(
-			_instance_name, amqp_url, amqp_node, amqp_user, amqp_password, amqp_durable_messages);
+		ret = audit_amqp_sender.configure(_instance_name,
+		                                  amqp_url,
+		                                  amqp_node,
+		                                  amqp_user,
+		                                  amqp_password,
+		                                  amqp_sasl_enabled,
+		                                  amqp_sasl_mechanisms,
+		                                  amqp_sasl_allow_insecure,
+		                                  amqp_durable_messages);
 		if (!ret.ok()) {
 			// clang-format off
 			log_re::error({

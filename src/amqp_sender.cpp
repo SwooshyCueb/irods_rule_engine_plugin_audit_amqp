@@ -51,6 +51,9 @@ namespace irods::plugin::rule_engine::audit_amqp
 	                                    const std::string& node,
 	                                    const std::string& user,
 	                                    const std::string& password,
+	                                    const std::optional<bool> sasl_enabled,
+	                                    const std::optional<std::string> sasl_mechanisms,
+	                                    const std::optional<bool> sasl_allow_insecure,
 	                                    const std::optional<bool> durable_messages)
 	{
 		if (_is_open) {
@@ -77,6 +80,9 @@ namespace irods::plugin::rule_engine::audit_amqp
 		_node = node;
 		_user = user;
 		_password = password;
+		_sasl_enabled = sasl_enabled;
+		_sasl_mechanisms = sasl_mechanisms;
+		_sasl_allow_insecure = sasl_allow_insecure;
 		_durable_messages = durable_messages;
 
 		_is_configured = true;
@@ -134,6 +140,15 @@ namespace irods::plugin::rule_engine::audit_amqp
 		}
 		if (!_password.empty()) {
 			conn_opts.password(_password);
+		}
+		if (_sasl_enabled.has_value()) {
+			conn_opts.sasl_enabled(*_sasl_enabled);
+		}
+		if (_sasl_mechanisms.has_value()) {
+			conn_opts.sasl_allowed_mechs(*_sasl_mechanisms);
+		}
+		if (_sasl_allow_insecure.has_value()) {
+			conn_opts.sasl_allow_insecure_mechs(*_sasl_allow_insecure);
 		}
 
 		proton::sender_options sender_opts;
@@ -287,6 +302,15 @@ namespace irods::plugin::rule_engine::audit_amqp
 		}
 		if (!_password.empty()) {
 			conn_opts.password(_password);
+		}
+		if (_sasl_enabled.has_value()) {
+			conn_opts.sasl_enabled(*_sasl_enabled);
+		}
+		if (_sasl_mechanisms.has_value()) {
+			conn_opts.sasl_allowed_mechs(*_sasl_mechanisms);
+		}
+		if (_sasl_allow_insecure.has_value()) {
+			conn_opts.sasl_allow_insecure_mechs(*_sasl_allow_insecure);
 		}
 
 		container.connect(_url, conn_opts);

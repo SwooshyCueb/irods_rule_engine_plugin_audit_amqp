@@ -39,6 +39,9 @@ namespace irods::plugin::rule_engine::audit_amqp
 		                       const std::string& node,
 		                       const std::string& user,
 		                       const std::string& password,
+		                       const std::optional<bool> sasl_enabled,
+		                       const std::optional<std::string> sasl_mechanisms,
+		                       const std::optional<bool> sasl_allow_insecure,
 		                       const std::optional<bool> durable_messages);
 		irods::error unconfigure();
 
@@ -97,6 +100,9 @@ namespace irods::plugin::rule_engine::audit_amqp
 		std::string _node;
 		std::string _user;
 		std::string _password;
+		std::optional<bool> _sasl_enabled;
+		std::optional<std::string> _sasl_mechanisms;
+		std::optional<bool> _sasl_allow_insecure;
 		std::optional<bool> _durable_messages;
 
 		std::mutex _proton_mutex;
