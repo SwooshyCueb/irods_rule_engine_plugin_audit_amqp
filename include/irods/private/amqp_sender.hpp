@@ -26,6 +26,7 @@
 #include <semaphore>
 #include <string>
 #include <thread>
+#include <vector>
 
 namespace irods::plugin::rule_engine::audit_amqp
 {
@@ -36,7 +37,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		~amqp_sender() override;
 
 		irods::error configure(const std::string& _re_instance_name,
-		                       const std::string& _endpoint,
+		                       const std::vector<std::string>& _endpoints,
 		                       const std::string& _path,
 		                       const std::string& _user,
 		                       const std::string& _password,
@@ -92,7 +93,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 		std::string re_instance_name_;
 
-		std::string endpoint_;
+		std::string primary_endpoint_;
+		std::vector<std::string> failover_endpoints_;
 		std::string path_;
 		std::string user_;
 		std::string password_;

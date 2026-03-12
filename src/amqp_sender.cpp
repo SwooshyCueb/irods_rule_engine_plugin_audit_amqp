@@ -9,6 +9,7 @@
 #include <irods/rodsErrorTable.h>
 
 #include <fmt/format.h>
+#include <fmt/compile.h>
 
 #include <nlohmann/json.hpp>
 
@@ -37,6 +38,7 @@
 #include <semaphore>
 #include <string>
 #include <thread>
+#include <vector>
 
 namespace irods::plugin::rule_engine::audit_amqp
 {
@@ -52,7 +54,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 	}
 
 	irods::error amqp_sender::configure(const std::string& _re_instance_name,
-	                                    const std::string& _endpoint,
+	                                    const std::vector<std::string>& endpoints,
 	                                    const std::string& _path,
 	                                    const std::string& _user,
 	                                    const std::string& _password,
@@ -65,24 +67,34 @@ namespace irods::plugin::rule_engine::audit_amqp
 		if (is_open_) {
 			return ERROR(SYS_ALREADY_INITIALIZED, "amqp_sender::configure called on open amqp_sender");
 		}
-		if (_endpoint.empty()) {
-			return ERROR(SYS_INVALID_SERVER_HOST, "amqp_sender::configure called with empty endpoint");
+		if (endpoints.empty()) {
+			return ERROR(SYS_INVALID_SERVER_HOST, "amqp_sender::configure called with empty endpoint list");
 		}
 
 #ifdef IRODS_AUDIT_EXTRA_TRACE
 		// clang-format off
-		log_re::trace({
+		std::vector<irods::experimental::log::key_value> log_kvs({
 			{"rule_engine_plugin", rule_engine_name},
 			{"instance_name", _re_instance_name},
 			{"call", __PRETTY_FUNCTION__},
-			{"endpoint", _endpoint},
-			{"path", _path},
 		});
 		// clang-format on
+		std::uint32_t ep_ctr = 0;
+		for (const std::string& endpoint : endpoints) {
+			log_kvs.emplace_back(fmt::format(FMT_COMPILE("endpoint_{0:02d}"), ep_ctr++), endpoint);
+		}
+		log_kvs.emplace_back("path", _path);
+		log_re::trace(log_kvs);
 #endif
 
 		re_instance_name_ = _re_instance_name;
-		endpoint_ = _endpoint;
+
+		failover_endpoints_.clear();
+		auto e_itr = endpoints.begin();
+		primary_endpoint_ = *(e_itr++);
+		failover_endpoints_.assign(e_itr, endpoints.end());
+		failover_endpoints_.shrink_to_fit();
+
 		path_ = _path;
 		user_ = _user;
 		password_ = _password;
@@ -130,17 +142,27 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// close call immediately following the log entry for the open call.
 #ifdef IRODS_AUDIT_EXTRA_TRACE
 		// clang-format off
-		log_re::trace({
+		std::vector<irods::experimental::log::key_value> log_kvs({
 			{"rule_engine_plugin", rule_engine_name},
 			{"instance_name", re_instance_name_},
-			{"call", __PRETTY_FUNCTION__}
+			{"call", __PRETTY_FUNCTION__},
+			{"primary_endpoint", primary_endpoint_},
 		});
 		// clang-format on
+		std::uint32_t ep_ctr = 0;
+		for (const std::string& endpoint : failover_endpoints_) {
+			log_kvs.emplace_back(fmt::format(FMT_COMPILE("failover_endpoint_{0:02d}"), ep_ctr++), endpoint);
+		}
+		log_kvs.emplace_back("path", path_);
+		log_re::trace(log_kvs);
 #endif
 
 		proton::connection_options conn_opts;
 		proton::reconnect_options reconn_opts;
 		conn_opts.handler(*this);
+		if (!failover_endpoints_.empty()) {
+			conn_opts.failover_urls(failover_endpoints_);
+		}
 		conn_opts.reconnect(reconn_opts);
 		if (!user_.empty()) {
 			conn_opts.user(user_);
@@ -431,6 +453,9 @@ namespace irods::plugin::rule_engine::audit_amqp
 		proton::connection_options conn_opts;
 		proton::reconnect_options reconn_opts;
 		conn_opts.handler(*this);
+		if (!failover_endpoints_.empty()) {
+			conn_opts.failover_urls(failover_endpoints_);
+		}
 		conn_opts.reconnect(reconn_opts);
 		if (!user_.empty()) {
 			conn_opts.user(user_);
@@ -447,6 +472,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		if (sasl_allow_insecure_.has_value()) {
 			conn_opts.sasl_allow_insecure_mechs(*sasl_allow_insecure_);
 		}
+
 		proton::sender_options sender_opts;
 		proton::target_options target_opts;
 		if (sender_durability_mode_.has_value()) {
@@ -455,7 +481,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		sender_opts.handler(*this);
 		sender_opts.target(target_opts);
 
-		connection_ = _container.connect(endpoint_, conn_opts);
+		connection_ = _container.connect(primary_endpoint_, conn_opts);
 		sender_ = connection_->open_sender(path_, sender_opts);
 
 		is_open_ = true;

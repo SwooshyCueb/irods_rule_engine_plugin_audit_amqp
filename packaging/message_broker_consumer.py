@@ -6,9 +6,9 @@ from proton.handlers import MessagingHandler
 
 
 class MessageBrokerConsumer(MessagingHandler):
-    def __init__(self, endpoint, user, password, path, pid_queue):
+    def __init__(self, endpoints, user, password, path, pid_queue):
         super(MessageBrokerConsumer, self).__init__()
-        self.endpoint = endpoint
+        self.endpoints = endpoints
         self.user = user
         self.password = password
         self.path = path
@@ -18,7 +18,7 @@ class MessageBrokerConsumer(MessagingHandler):
 
     def on_start(self, event):
         connect_kwargs = {
-            "url": self.endpoint,
+            "urls": self.endpoints,
             "sasl_enabled": True,
             "allow_insecure_mechs": True
         }

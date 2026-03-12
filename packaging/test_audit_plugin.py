@@ -29,23 +29,24 @@ class TestAuditPlugin(unittest.TestCase):
             if rule_engine["instance_name"] == "irods_rule_engine_plugin-audit_amqp-instance":
                 rule_engine_cfg = rule_engine["plugin_specific_configuration"]
 
-                # Fetch and construct AMQP endpoint URL
-                endpoint = rule_engine_cfg["amqp_endpoint"]
-                scheme = endpoint.get("scheme", "")
-                scheme_post = "://" if scheme else ""
-                host = endpoint["host"]
-                port = str(endpoint.get("port", ""))
-                port_pre = ":" if port else ""
-                e_params = "&".join([k if v is None else f"{k}={v}" for k, v in endpoint.get("parameters", {}).items()])
-                e_params_pre = "?" if e_params else ""
-                e_frag = ""
-                e_frag_pre = ""
-                if "fragment" in endpoint:
-                    e_frag = endpoint["fragment"]
-                    e_frag_pre = "#"
-                    e_frag = "" if e_frag is None else e_frag
-                port_post = "/" if e_params or e_frag_pre else ""
-                self.amqp_endpoint = f"{scheme}{scheme_post}{host}{port_pre}{port}{port_post}{e_params_pre}{e_params}{e_frag_pre}{e_frag}"
+                # Fetch and construct AMQP endpoint URLs
+                self.amqp_endpoints = []
+                for endpoint in rule_engine_cfg["amqp_endpoints"]:
+                    scheme = endpoint.get("scheme", "")
+                    scheme_post = "://" if scheme else ""
+                    host = endpoint["host"]
+                    port = str(endpoint.get("port", ""))
+                    port_pre = ":" if port else ""
+                    e_params = "&".join([k if v is None else f"{k}={v}" for k, v in endpoint.get("parameters", {}).items()])
+                    e_params_pre = "?" if e_params else ""
+                    e_frag = ""
+                    e_frag_pre = ""
+                    if "fragment" in endpoint:
+                        e_frag = endpoint["fragment"]
+                        e_frag_pre = "#"
+                        e_frag = "" if e_frag is None else e_frag
+                    port_post = "/" if e_params or e_frag_pre else ""
+                    self.amqp_endpoints.append(f"{scheme}{scheme_post}{host}{port_pre}{port}{port_post}{e_params_pre}{e_params}{e_frag_pre}{e_frag}")                
 
                 # Fetch AMQP credentials
                 self.amqp_user = rule_engine_cfg.get("amqp_user", None)
@@ -95,7 +96,7 @@ class TestAuditPlugin(unittest.TestCase):
             # Establish communication queues
             pid_queue = multiprocessing.JoinableQueue()
             result_queue = multiprocessing.Queue()
-            listener = QueueListener(pid_queue, result_queue, self.amqp_endpoint, self.amqp_user, self.amqp_password, self.amqp_path)
+            listener = QueueListener(pid_queue, result_queue, self.amqp_endpoints, self.amqp_user, self.amqp_password, self.amqp_path)
             listener.run()
 
             print("result queue size is ", result_queue.qsize())
