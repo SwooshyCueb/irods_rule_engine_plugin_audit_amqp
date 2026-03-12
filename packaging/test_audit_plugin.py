@@ -27,7 +27,7 @@ class TestAuditPlugin(unittest.TestCase):
         rule_engines = config["plugin_configuration"]["rule_engines"]
         for rule_engine in rule_engines:
             if rule_engine["instance_name"] == "irods_rule_engine_plugin-audit_amqp-instance":
-                endpoint = rule_engine["plugin_specific_configuration"]["amqp_endpoint"]
+                endpoint = rule_engine["plugin_specific_configuration"]["amqp_endpoints"][0]
                 scheme = endpoint.get("scheme", default="")
                 scheme_post = "://" if scheme else ""
                 host = endpoint["host"]

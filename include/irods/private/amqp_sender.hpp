@@ -11,6 +11,7 @@
 #include <optional>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include <boost/config.hpp>
 
@@ -36,7 +37,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		~amqp_sender() override;
 
 		irods::error configure(const std::string& re_instance_name,
-		                       const std::string& endpoint,
+		                       const std::vector<std::string>& endpoints,
 		                       const std::string& path,
 		                       const std::string& user,
 		                       const std::string& password,
@@ -98,7 +99,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 		std::string _re_instance_name;
 
-		std::string _endpoint;
+		std::string _primary_endpoint;
+		std::vector<std::string> _failover_endpoints;
 		std::string _path;
 		std::string _user;
 		std::string _password;

@@ -14,8 +14,10 @@
 #include <optional>
 #include <ostream>
 #include <thread>
+#include <vector>
 
 #include <fmt/format.h>
+#include <fmt/compile.h>
 
 #include <nlohmann/json.hpp>
 
@@ -49,7 +51,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 	}
 
 	irods::error amqp_sender::configure(const std::string& re_instance_name,
-	                                    const std::string& endpoint,
+	                                    const std::vector<std::string>& endpoints,
 	                                    const std::string& path,
 	                                    const std::string& user,
 	                                    const std::string& password,
@@ -62,24 +64,36 @@ namespace irods::plugin::rule_engine::audit_amqp
 		if (_is_open) {
 			return ERROR(SYS_ALREADY_INITIALIZED, "amqp_sender::configure called on open amqp_sender");
 		}
-		if (endpoint.empty()) {
-			return ERROR(SYS_INVALID_SERVER_HOST, "amqp_sender::configure called with empty url");
+		if (endpoints.empty()) {
+			return ERROR(SYS_INVALID_SERVER_HOST, "amqp_sender::configure called with empty endpoint list");
 		}
 
 		// clang-format off
 		#ifdef IRODS_AUDIT_EXTRA_TRACE
-		log_re::trace({
+		std::vector<irods::experimental::log::key_value> log_kvs({
 			{"rule_engine_plugin", rule_engine_name},
 			{"instance_name", re_instance_name},
 			{"call", __PRETTY_FUNCTION__},
-			{"endpoint", endpoint},
-			{"path", path},
 		});
+		// clang-format on
+		std::uint32_t ep_ctr = 0;
+		for (const std::string& endpoint : endpoints) {
+			log_kvs.emplace_back(fmt::format(FMT_COMPILE("endpoint_{0:02d}"), ep_ctr++), endpoint);
+		}
+		log_kvs.emplace_back("path", path);
+		log_re::trace(log_kvs);
+		// clang-format off
 		#endif
 		// clang-format on
 
 		_re_instance_name = re_instance_name;
-		_endpoint = endpoint;
+
+		_failover_endpoints.clear();
+		auto e_itr = endpoints.begin();
+		_primary_endpoint = *(e_itr++);
+		_failover_endpoints.assign(e_itr, endpoints.end());
+		_failover_endpoints.shrink_to_fit();
+
 		_path = path;
 		_user = user;
 		_password = password;
@@ -127,17 +141,27 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// close call immediately following the log entry for the open call.
 		// clang-format off
 		#ifdef IRODS_AUDIT_EXTRA_TRACE
-		log_re::trace({
+		std::vector<irods::experimental::log::key_value> log_kvs({
 			{"rule_engine_plugin", rule_engine_name},
 			{"instance_name", _re_instance_name},
-			{"call", __PRETTY_FUNCTION__}
+			{"call", __PRETTY_FUNCTION__},
+			{"primary_endpoint", _primary_endpoint},
 		});
+		// clang-format on
+		std::uint32_t ep_ctr = 0;
+		for (const std::string& endpoint : _failover_endpoints) {
+			log_kvs.emplace_back(fmt::format(FMT_COMPILE("failover_endpoint_{0:02d}"), ep_ctr++), endpoint);
+		}
+		log_kvs.emplace_back("path", _path);
+		log_re::trace(log_kvs);
+		// clang-format off
 		#endif
 		// clang-format on
 
 		proton::connection_options conn_opts;
 		proton::reconnect_options reconn_opts;
 		conn_opts.handler(*this);
+		conn_opts.failover_urls(_failover_endpoints);
 		conn_opts.reconnect(reconn_opts);
 		if (!_user.empty()) {
 			conn_opts.user(_user);
@@ -303,6 +327,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		proton::connection_options conn_opts;
 		proton::reconnect_options reconn_opts;
 		conn_opts.handler(*this);
+		conn_opts.failover_urls(_failover_endpoints);
 		conn_opts.reconnect(reconn_opts);
 		if (!_user.empty()) {
 			conn_opts.user(_user);
@@ -320,7 +345,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			conn_opts.sasl_allow_insecure_mechs(*_sasl_allow_insecure);
 		}
 
-		container.connect(_endpoint, conn_opts);
+		container.connect(_primary_endpoint, conn_opts);
 	}
 
 	void amqp_sender::on_connection_open([[maybe_unused]] proton::connection& connection)
