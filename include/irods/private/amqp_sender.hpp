@@ -9,6 +9,7 @@
 #include <fstream>
 #include <mutex>
 #include <optional>
+#include <semaphore>
 #include <string>
 #include <thread>
 #include <vector>
@@ -61,12 +62,9 @@ namespace irods::plugin::rule_engine::audit_amqp
 		                  std::ofstream& test_log_ofstream);
 
 		void on_container_start(proton::container& container) override;
-		void on_connection_open(proton::connection& connection) override;
-		void on_sender_open(proton::sender& sender) override;
 		void on_transport_error(proton::transport& transport) override;
 		void on_connection_error(proton::connection& connection) override;
 		void on_session_error(proton::session& session) override;
-		void on_receiver_error(proton::receiver& receiver) override;
 		void on_sender_error(proton::sender& sender) override;
 		void on_tracker_reject(proton::tracker& tracker) override;
 		void on_error(const proton::error_condition& err_cond) override;
@@ -76,20 +74,17 @@ namespace irods::plugin::rule_engine::audit_amqp
 		void on_sendable(proton::sender& sender) override;
 		void on_transport_open(proton::transport& transport) override;
 		void on_transport_close(proton::transport& transport) override;
+		void on_connection_open(proton::connection& connection) override;
 		void on_connection_close(proton::connection& connection) override;
 		void on_session_open(proton::session& session) override;
 		void on_session_close(proton::session& session) override;
-		void on_receiver_open(proton::receiver& receiver) override;
-		void on_receiver_detach(proton::receiver& receiver) override;
-		void on_receiver_close(proton::receiver& receiver) override;
 		void on_sender_detach(proton::sender& sender) override;
+		void on_sender_open(proton::sender& sender) override;
 		void on_sender_close(proton::sender& sender) override;
 		void on_tracker_accept(proton::tracker& tracker) override;
 		void on_tracker_release(proton::tracker& tracker) override;
 		void on_tracker_settle(proton::tracker& tracker) override;
-		void on_delivery_settle(proton::delivery& delivery) override;
 		void on_sender_drain_start(proton::sender& sender) override;
-		void on_receiver_drain_finish(proton::receiver& receiver) override;
 		void on_connection_wake(proton::connection& connection) override;
 		#endif
 
@@ -110,8 +105,9 @@ namespace irods::plugin::rule_engine::audit_amqp
 		std::optional<enum proton::target::durability_mode> _sender_durability_mode;
 		std::optional<bool> _durable_messages;
 
-		std::mutex _proton_mutex;
 		std::optional<std::thread> _proton_thread;
+		std::mutex _amqp_send_mutex;
+		std::binary_semaphore _connection_semaphore;
 
 		std::optional<proton::container> _container;
 		std::optional<proton::connection> _connection;

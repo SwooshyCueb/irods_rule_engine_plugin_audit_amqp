@@ -10,9 +10,10 @@
 
 #include <cstdint>
 #include <mutex>
-#include <string>
 #include <optional>
 #include <ostream>
+#include <semaphore>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -43,6 +44,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 	amqp_sender::amqp_sender()
 		: _is_configured(false)
 		, _is_open(false)
+		, _connection_semaphore(0)
 	{ }
 
 	amqp_sender::~amqp_sender()
@@ -193,16 +195,15 @@ namespace irods::plugin::rule_engine::audit_amqp
 		container.client_connection_options(conn_opts);
 		container.sender_options(sender_opts);
 
-		_is_open = true;
-
 		_proton_thread.emplace([&container]() { container.run(); });
+		_connection_semaphore.acquire();
 
 		return SUCCESS();
 	}
 
 	void amqp_sender::close()
 	{
-		const std::scoped_lock<std::mutex> lock(_proton_mutex);
+		const std::scoped_lock<std::mutex> send_lock(_amqp_send_mutex);
 
 		// clang-format off
 		#ifdef IRODS_AUDIT_EXTRA_TRACE
@@ -214,24 +215,45 @@ namespace irods::plugin::rule_engine::audit_amqp
 		#endif
 		// clang-format on
 
+		std::binary_semaphore disconn_sem(0);
+
 		if (_sender.has_value()) {
 			proton::sender& sender = *_sender;
-			sender.work_queue().add([&sender]() {
+			bool wq_res = sender.work_queue().add([&sender, &disconn_sem]() {
 				if (!sender.closed()) {
 					sender.close();
 				}
+				disconn_sem.release();
 			});
+			if (wq_res) {
+				disconn_sem.acquire();
+			}
+
+			proton::session session = sender.session();
+			wq_res = sender.work_queue().add([&session, &disconn_sem]() {
+				if (!session.closed()) {
+					session.close();
+				}
+				disconn_sem.release();
+			});
+			if (wq_res) {
+				disconn_sem.acquire();
+			}
 		}
 
 		_is_open = false;
 
 		if (_connection.has_value()) {
 			proton::connection& connection = *_connection;
-			connection.work_queue().add([&connection]() {
+			const bool wq_res = connection.work_queue().add([&connection, &disconn_sem]() {
 				if (!connection.closed()) {
 					connection.close();
 				}
+				disconn_sem.release();
 			});
+			if (wq_res) {
+				disconn_sem.acquire();
+			}
 		}
 
 		if (_container.has_value()) {
@@ -254,9 +276,9 @@ namespace irods::plugin::rule_engine::audit_amqp
 	                               const pid_t pid,
 	                               std::ofstream& test_log_ofstream)
 	{
-		const std::scoped_lock<std::mutex> lock(_proton_mutex);
+		const std::scoped_lock<std::mutex> send_lock(_amqp_send_mutex);
 
-		if (!(_is_open || _sender.has_value())) {
+		if (!(_is_open && _sender.has_value())) {
 			THROW(SYS_UNINITIALIZED, "send_message called on closed amqp_sender");
 		}
 
@@ -283,8 +305,25 @@ namespace irods::plugin::rule_engine::audit_amqp
 			msg.durable(*_durable_messages);
 		}
 
+		std::binary_semaphore send_semaphore(0);
 		proton::sender& sender = *_sender;
-		sender.work_queue().add([&sender, &msg]() { sender.send(msg); });
+		const bool is_sending = sender.work_queue().add([&sender, &msg, &send_semaphore]() {
+			sender.send(msg);
+			send_semaphore.release();
+		});
+		if (is_sending) {
+			send_semaphore.acquire();
+		}
+		else {
+			// clang-format off
+			log_re::error({
+				{"rule_engine_plugin", rule_engine_name},
+				{"instance_name", _re_instance_name},
+				{"pid", fmt::to_string(pid)},
+				{"log_message", "Could not add message to work queue."}
+			});
+			// clang-format on
+		}
 
 		if (test_log_ofstream.is_open()) {
 			const std::string pid_str = fmt::to_string(pid);
@@ -345,22 +384,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			conn_opts.sasl_allow_insecure_mechs(*_sasl_allow_insecure);
 		}
 
-		container.connect(_primary_endpoint, conn_opts);
-	}
-
-	void amqp_sender::on_connection_open([[maybe_unused]] proton::connection& connection)
-	{
-		// clang-format off
-		#ifdef IRODS_AUDIT_EXTRA_TRACE
-		log_re::trace({
-			{"rule_engine_plugin", rule_engine_name},
-			{"instance_name", _re_instance_name},
-			{"call", __PRETTY_FUNCTION__},
-		});
-		#endif
-		// clang-format on
-
-		_connection = connection;
+		_connection = container.connect(_primary_endpoint, conn_opts);
 
 		proton::sender_options sender_opts;
 		proton::target_options target_opts;
@@ -370,34 +394,11 @@ namespace irods::plugin::rule_engine::audit_amqp
 		sender_opts.handler(*this);
 		sender_opts.target(target_opts);
 
-		connection.open_sender(_path, sender_opts);
-	}
+		_sender = _connection->open_sender(_path, sender_opts);
 
-	void amqp_sender::on_sender_open([[maybe_unused]] proton::sender& sender)
-	{
-		const std::scoped_lock<std::mutex> lock(_proton_mutex);
+		_is_open = true;
 
-		// clang-format off
-		#ifdef IRODS_AUDIT_EXTRA_TRACE
-		log_re::trace({
-			{"rule_engine_plugin", rule_engine_name},
-			{"instance_name", _re_instance_name},
-			{"call", __PRETTY_FUNCTION__},
-		});
-		#endif
-		// clang-format on
-
-		_sender = sender;
-	}
-
-	void amqp_sender::on_tracker_reject([[maybe_unused]] proton::tracker& tracker)
-	{
-		// clang-format off
-		log_re::error({
-			{"rule_engine_plugin", rule_engine_name},
-			{"log_message", "AMQP server unexpectedly rejected message"}
-		});
-		// clang-format on
+		_connection_semaphore.release();
 	}
 
 	void amqp_sender::on_transport_error(proton::transport& transport)
@@ -445,21 +446,6 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// clang-format on
 	}
 
-	void amqp_sender::on_receiver_error(proton::receiver& receiver)
-	{
-		const proton::error_condition& err_cond = receiver.error();
-		// clang-format off
-		log_re::error({
-			{"rule_engine_plugin", rule_engine_name},
-			{"instance_name", _re_instance_name},
-			{"log_message", "Receiver error in proton messaging handler"},
-			{"error_condition::name", err_cond.name()},
-			{"error_condition::description", err_cond.description()},
-			{"error_condition::what", err_cond.what()}
-		});
-		// clang-format on
-	}
-
 	void amqp_sender::on_sender_error(proton::sender& sender)
 	{
 		const proton::error_condition& err_cond = sender.error();
@@ -471,6 +457,16 @@ namespace irods::plugin::rule_engine::audit_amqp
 			{"error_condition::name", err_cond.name()},
 			{"error_condition::description", err_cond.description()},
 			{"error_condition::what", err_cond.what()}
+		});
+		// clang-format on
+	}
+
+	void amqp_sender::on_tracker_reject([[maybe_unused]] proton::tracker& tracker)
+	{
+		// clang-format off
+		log_re::error({
+			{"rule_engine_plugin", rule_engine_name},
+			{"log_message", "AMQP server unexpectedly rejected message"}
 		});
 		// clang-format on
 	}
@@ -490,6 +486,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 	}
 
 #ifdef IRODS_AUDIT_EXTRA_TRACE
+
 	void amqp_sender::on_container_stop([[maybe_unused]] proton::container& container)
 	{
 		// clang-format off
@@ -534,6 +531,17 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// clang-format on
 	}
 
+	void amqp_sender::on_connection_open([[maybe_unused]] proton::connection& connection)
+	{
+		// clang-format off
+		log_re::trace({
+			{"rule_engine_plugin", rule_engine_name},
+			{"instance_name", _re_instance_name},
+			{"call", __PRETTY_FUNCTION__},
+		});
+		// clang-format on
+	}
+
 	void amqp_sender::on_connection_close([[maybe_unused]] proton::connection& connection)
 	{
 		// clang-format off
@@ -567,40 +575,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// clang-format on
 	}
 
-	void amqp_sender::on_receiver_open([[maybe_unused]] proton::receiver& receiver)
-	{
-		// clang-format off
-		log_re::trace({
-			{"rule_engine_plugin", rule_engine_name},
-			{"instance_name", _re_instance_name},
-			{"call", __PRETTY_FUNCTION__},
-		});
-		// clang-format on
-	}
-
-	void amqp_sender::on_receiver_detach([[maybe_unused]] proton::receiver& receiver)
-	{
-		// clang-format off
-		log_re::trace({
-			{"rule_engine_plugin", rule_engine_name},
-			{"instance_name", _re_instance_name},
-			{"call", __PRETTY_FUNCTION__},
-		});
-		// clang-format on
-	}
-
-	void amqp_sender::on_receiver_close([[maybe_unused]] proton::receiver& receiver)
-	{
-		// clang-format off
-		log_re::trace({
-			{"rule_engine_plugin", rule_engine_name},
-			{"instance_name", _re_instance_name},
-			{"call", __PRETTY_FUNCTION__},
-		});
-		// clang-format on
-	}
-
-	void amqp_sender::on_sender_detach([[maybe_unused]] proton::sender& sender)
+	void amqp_sender::on_sender_open([[maybe_unused]] proton::sender& sender)
 	{
 		// clang-format off
 		log_re::trace({
@@ -655,7 +630,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// clang-format on
 	}
 
-	void amqp_sender::on_delivery_settle([[maybe_unused]] proton::delivery& delivery)
+	void amqp_sender::on_sender_detach([[maybe_unused]] proton::sender& sender)
 	{
 		// clang-format off
 		log_re::trace({
@@ -667,17 +642,6 @@ namespace irods::plugin::rule_engine::audit_amqp
 	}
 
 	void amqp_sender::on_sender_drain_start([[maybe_unused]] proton::sender& sender)
-	{
-		// clang-format off
-		log_re::trace({
-			{"rule_engine_plugin", rule_engine_name},
-			{"instance_name", _re_instance_name},
-			{"call", __PRETTY_FUNCTION__},
-		});
-		// clang-format on
-	}
-
-	void amqp_sender::on_receiver_drain_finish([[maybe_unused]] proton::receiver& receiver)
 	{
 		// clang-format off
 		log_re::trace({
