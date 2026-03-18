@@ -7,8 +7,14 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/url/url_view.hpp>
 
+#include <fmt/format.h>
+#include <fmt/compile.h>
+
 #include <nlohmann/json.hpp>
 
+#include <proton/connection_options.hpp>
+#include <proton/duration.hpp>
+#include <proton/reconnect_options.hpp>
 #include <proton/target.hpp>
 
 #include <cstdint>
@@ -47,11 +53,15 @@ namespace irods::plugin::rule_engine::audit_amqp
 						log_re::error({
 							{"rule_engine_plugin", rule_engine_name},
 							{"instance_name", _re_instance_name},
-							{"log_message", "AMQP endpoint port must not exceed 65535."},
+							{"log_message",
+							 fmt::format(FMT_COMPILE("AMQP endpoint port must not exceed {}."),
+							             std::numeric_limits<std::uint16_t>::max())},
 							{"port", std::to_string(port)}
 						});
 						// clang-format on
-						return ERROR(CONFIGURATION_ERROR, "AMQP endpoint port greater than 65535.");
+						return ERROR(CONFIGURATION_ERROR,
+						             fmt::format(FMT_COMPILE("AMQP endpoint port greater than {}."),
+						                         std::numeric_limits<std::uint16_t>::max()));
 					}
 					endpoint_ss << ':' << std::to_string(port);
 				}
@@ -345,6 +355,170 @@ namespace irods::plugin::rule_engine::audit_amqp
 			}
 		}
 
+		const auto max_frame_size_cfg = _plugin_specific_configuration.find("amqp_connection_max_frame_size");
+		if (max_frame_size_cfg == _plugin_specific_configuration.end()) {
+			connection_max_frame_size_ = defaults::connection_max_frame_size;
+		}
+		else {
+			const auto& max_frame_size = max_frame_size_cfg->get_ref<const nlohmann::json::number_unsigned_t&>();
+			if (max_frame_size > std::numeric_limits<std::uint32_t>::max()) {
+				// clang-format off
+				log_re::error({
+					{"rule_engine_plugin", rule_engine_name},
+					{"instance_name", _re_instance_name},
+					{"log_message",
+					 fmt::format(FMT_COMPILE("Max frame size must not exceed {}."),
+					             std::numeric_limits<std::uint32_t>::max())},
+					{"amqp_connection_max_frame_size", std::to_string(max_frame_size)}
+				});
+				// clang-format on
+				return ERROR(CONFIGURATION_ERROR,
+				             fmt::format(FMT_COMPILE("Max frame size greater than {}."),
+				                         std::numeric_limits<std::uint32_t>::max()));
+			}
+			connection_max_frame_size_ = static_cast<std::uint32_t>(max_frame_size);
+		}
+
+		const auto max_sessions_cfg = _plugin_specific_configuration.find("amqp_connection_max_sessions");
+		if (max_sessions_cfg == _plugin_specific_configuration.end()) {
+			connection_max_sessions_ = defaults::connection_max_sessions;
+		}
+		else {
+			const auto& max_sessions = max_sessions_cfg->get_ref<const nlohmann::json::number_unsigned_t&>();
+			if (max_sessions > std::numeric_limits<std::uint16_t>::max()) {
+				// clang-format off
+				log_re::error({
+					{"rule_engine_plugin", rule_engine_name},
+					{"instance_name", _re_instance_name},
+					{"log_message",
+					 fmt::format(FMT_COMPILE("Max sessions must not exceed {}."),
+					             std::numeric_limits<std::uint16_t>::max())},
+					{"amqp_connection_max_sessions", std::to_string(max_sessions)}
+				});
+				// clang-format on
+				return ERROR(CONFIGURATION_ERROR,
+				             fmt::format(FMT_COMPILE("Max sessions greater than {}."),
+				                         std::numeric_limits<std::uint16_t>::max()));
+			}
+			connection_max_sessions_ = static_cast<std::uint16_t>(max_sessions);
+		}
+
+		const auto idle_timeout_cfg = _plugin_specific_configuration.find("amqp_connection_idle_timeout");
+		if (idle_timeout_cfg == _plugin_specific_configuration.end()) {
+			connection_idle_timeout_ = defaults::connection_idle_timeout;
+		}
+		else {
+			const auto& idle_timeout = idle_timeout_cfg->get_ref<const nlohmann::json::number_unsigned_t&>();
+			if (idle_timeout > std::numeric_limits<proton::duration::numeric_type>::max()) {
+				// clang-format off
+				log_re::error({
+					{"rule_engine_plugin", rule_engine_name},
+					{"instance_name", _re_instance_name},
+					{"log_message",
+					 fmt::format(FMT_COMPILE("Idle timeout must not exceed {}."),
+					             std::numeric_limits<proton::duration::numeric_type>::max())},
+					{"amqp_connection_idle_timeout", std::to_string(idle_timeout)}
+				});
+				// clang-format on
+				return ERROR(CONFIGURATION_ERROR,
+				             fmt::format(FMT_COMPILE("Idle timeout greater than {}."),
+				                         std::numeric_limits<proton::duration::numeric_type>::max()));
+			}
+			connection_idle_timeout_ = static_cast<proton::duration::numeric_type>(idle_timeout);
+		}
+
+		const auto virtual_host_cfg = _plugin_specific_configuration.find("amqp_connection_virtual_host");
+		if (virtual_host_cfg == _plugin_specific_configuration.end()) {
+			connection_virtual_host_ = defaults::connection_virtual_host;
+		}
+		else {
+			connection_virtual_host_ = virtual_host_cfg->get_ref<const std::string&>();
+		}
+
+		const auto reconnect_delay_cfg = _plugin_specific_configuration.find("amqp_reconnect_base_delay");
+		if (reconnect_delay_cfg == _plugin_specific_configuration.end()) {
+			reconnect_delay_ = defaults::reconnect_delay;
+		}
+		else {
+			const auto& reconnect_delay = reconnect_delay_cfg->get_ref<const nlohmann::json::number_unsigned_t&>();
+			if (reconnect_delay > std::numeric_limits<proton::duration::numeric_type>::max()) {
+				// clang-format off
+				log_re::error({
+					{"rule_engine_plugin", rule_engine_name},
+					{"instance_name", _re_instance_name},
+					{"log_message",
+					 fmt::format(FMT_COMPILE("Base reconnect delay must not exceed {}."),
+					             std::numeric_limits<proton::duration::numeric_type>::max())},
+					{"amqp_reconnect_base_delay", std::to_string(reconnect_delay)}
+				});
+				// clang-format on
+				return ERROR(CONFIGURATION_ERROR,
+				             fmt::format(FMT_COMPILE("Base reconnect delay greater than {}."),
+				                         std::numeric_limits<proton::duration::numeric_type>::max()));
+			}
+			reconnect_delay_ = static_cast<proton::duration::numeric_type>(reconnect_delay);
+		}
+
+		const auto reconnect_delay_multiplier_cfg =
+			_plugin_specific_configuration.find("amqp_reconnect_delay_multiplier");
+		if (reconnect_delay_multiplier_cfg == _plugin_specific_configuration.end()) {
+			reconnect_delay_multiplier_ = defaults::reconnect_delay_multiplier;
+		}
+		else {
+			reconnect_delay_multiplier_ =
+				static_cast<float>(reconnect_delay_multiplier_cfg->get_ref<const nlohmann::json::number_float_t&>());
+		}
+
+		const auto reconnect_max_delay_cfg = _plugin_specific_configuration.find("amqp_reconnect_max_delay");
+		if (reconnect_max_delay_cfg == _plugin_specific_configuration.end()) {
+			reconnect_max_delay_ = defaults::reconnect_max_delay;
+		}
+		else {
+			const auto& reconnect_max_delay =
+				reconnect_max_delay_cfg->get_ref<const nlohmann::json::number_unsigned_t&>();
+			if (reconnect_max_delay > std::numeric_limits<proton::duration::numeric_type>::max()) {
+				// clang-format off
+				log_re::error({
+					{"rule_engine_plugin", rule_engine_name},
+					{"instance_name", _re_instance_name},
+					{"log_message",
+					 fmt::format(FMT_COMPILE("Max reconnect delay must not exceed {}."),
+					             std::numeric_limits<proton::duration::numeric_type>::max())},
+					{"amqp_reconnect_max_delay", std::to_string(reconnect_max_delay)}
+				});
+				// clang-format on
+				return ERROR(CONFIGURATION_ERROR,
+				             fmt::format(FMT_COMPILE("Max reconnect delay greater than {}."),
+				                         std::numeric_limits<proton::duration::numeric_type>::max()));
+			}
+			reconnect_max_delay_ = static_cast<proton::duration::numeric_type>(reconnect_max_delay);
+		}
+
+		const auto reconnect_max_attempts_cfg = _plugin_specific_configuration.find("amqp_reconnect_max_attempts");
+		if (reconnect_max_attempts_cfg == _plugin_specific_configuration.end()) {
+			reconnect_max_attempts_ = defaults::reconnect_max_attempts;
+		}
+		else {
+			const auto& reconnect_max_attempts =
+				reconnect_max_attempts_cfg->get_ref<const nlohmann::json::number_unsigned_t&>();
+			if (reconnect_max_attempts > std::numeric_limits<int>::max()) {
+				// clang-format off
+				log_re::error({
+					{"rule_engine_plugin", rule_engine_name},
+					{"instance_name", _re_instance_name},
+					{"log_message",
+					 fmt::format(FMT_COMPILE("Max reconnect attempts must not exceed {}."),
+					             std::numeric_limits<int>::max())},
+					{"amqp_reconnect_max_attempts", std::to_string(reconnect_max_attempts)}
+				});
+				// clang-format on
+				return ERROR(CONFIGURATION_ERROR,
+				             fmt::format(FMT_COMPILE("Max reconnect attempts greater than {}."),
+				                         std::numeric_limits<int>::max()));
+			}
+			reconnect_max_attempts_ = static_cast<int>(reconnect_max_attempts);
+		}
+
 		const auto sender_durability_cfg = _plugin_specific_configuration.find("amqp_sender_durability_mode");
 		if (sender_durability_cfg == _plugin_specific_configuration.end()) {
 			sender_durability_mode_ = defaults::sender_durability_mode;
@@ -389,5 +563,54 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 		is_initialized_ = true;
 		return SUCCESS();
+	}
+
+	void amqp_config::configure_connection(proton::connection_options& _conn_opts)
+	{
+		if (!failover_endpoints_.empty()) {
+			_conn_opts.failover_urls(failover_endpoints_);
+		}
+		if (!user_.empty()) {
+			_conn_opts.user(user_);
+		}
+		if (!password_.empty()) {
+			_conn_opts.password(password_);
+		}
+		if (connection_max_frame_size_.has_value()) {
+			_conn_opts.max_frame_size(*connection_max_frame_size_);
+		}
+		if (connection_max_sessions_.has_value()) {
+			_conn_opts.max_sessions(*connection_max_sessions_);
+		}
+		if (connection_idle_timeout_.has_value()) {
+			_conn_opts.idle_timeout(*connection_idle_timeout_);
+		}
+		if (connection_virtual_host_.has_value()) {
+			_conn_opts.virtual_host(*connection_virtual_host_);
+		}
+		if (sasl_enabled_.has_value()) {
+			_conn_opts.sasl_enabled(*sasl_enabled_);
+		}
+		if (sasl_mechanisms_.has_value()) {
+			_conn_opts.sasl_allowed_mechs(*sasl_mechanisms_);
+		}
+		if (sasl_allow_insecure_.has_value()) {
+			_conn_opts.sasl_allow_insecure_mechs(*sasl_allow_insecure_);
+		}
+
+		proton::reconnect_options reconn_opts;
+		if (reconnect_delay_.has_value()) {
+			reconn_opts.delay(*reconnect_delay_);
+		}
+		if (reconnect_delay_multiplier_.has_value()) {
+			reconn_opts.delay_multiplier(*reconnect_delay_multiplier_);
+		}
+		if (reconnect_max_delay_.has_value()) {
+			reconn_opts.max_delay(*reconnect_max_delay_);
+		}
+		if (reconnect_max_attempts_.has_value()) {
+			reconn_opts.max_attempts(*reconnect_max_attempts_);
+		}
+		_conn_opts.reconnect(reconn_opts);
 	}
 } //namespace irods::plugin::rule_engine::audit_amqp

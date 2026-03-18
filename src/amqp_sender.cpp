@@ -133,27 +133,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 #endif
 
 		proton::connection_options conn_opts;
-		proton::reconnect_options reconn_opts;
 		conn_opts.handler(*this);
-		if (!amqp_config_.failover_endpoints().empty()) {
-			conn_opts.failover_urls(amqp_config_.failover_endpoints());
-		}
-		conn_opts.reconnect(reconn_opts);
-		if (!amqp_config_.user().empty()) {
-			conn_opts.user(amqp_config_.user());
-		}
-		if (!amqp_config_.password().empty()) {
-			conn_opts.password(amqp_config_.password());
-		}
-		if (amqp_config_.sasl_enabled().has_value()) {
-			conn_opts.sasl_enabled(*amqp_config_.sasl_enabled());
-		}
-		if (amqp_config_.sasl_mechanisms().has_value()) {
-			conn_opts.sasl_allowed_mechs(*amqp_config_.sasl_mechanisms());
-		}
-		if (amqp_config_.sasl_allow_insecure().has_value()) {
-			conn_opts.sasl_allow_insecure_mechs(*amqp_config_.sasl_allow_insecure());
-		}
+		amqp_config_.configure_connection(conn_opts);
 
 		proton::sender_options sender_opts;
 		proton::target_options target_opts;
@@ -426,27 +407,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 #endif
 
 		proton::connection_options conn_opts;
-		proton::reconnect_options reconn_opts;
 		conn_opts.handler(*this);
-		if (!amqp_config_.failover_endpoints().empty()) {
-			conn_opts.failover_urls(amqp_config_.failover_endpoints());
-		}
-		conn_opts.reconnect(reconn_opts);
-		if (!amqp_config_.user().empty()) {
-			conn_opts.user(amqp_config_.user());
-		}
-		if (!amqp_config_.password().empty()) {
-			conn_opts.password(amqp_config_.password());
-		}
-		if (amqp_config_.sasl_enabled().has_value()) {
-			conn_opts.sasl_enabled(*amqp_config_.sasl_enabled());
-		}
-		if (amqp_config_.sasl_mechanisms().has_value()) {
-			conn_opts.sasl_allowed_mechs(*amqp_config_.sasl_mechanisms());
-		}
-		if (amqp_config_.sasl_allow_insecure().has_value()) {
-			conn_opts.sasl_allow_insecure_mechs(*amqp_config_.sasl_allow_insecure());
-		}
+		amqp_config_.configure_connection(conn_opts);
 
 		proton::sender_options sender_opts;
 		proton::target_options target_opts;
