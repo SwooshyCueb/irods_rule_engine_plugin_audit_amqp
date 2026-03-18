@@ -54,7 +54,12 @@ Add a new stanza to the "rule_engines" array within `server_config.json`:
             "allow_insecure": true
         },
         "amqp_connection_max_frame_size": 65536,
-        "amqp_sender_durability_mode": "UNSETTLED_STATE",
+        "amqp_sender": {
+            "delivery_mode": "AT_LEAST_ONCE",
+            "target": {
+                "durability_mode": "UNSETTLED_STATE"
+            }
+        },
         "amqp_durable_messages": true
     }
 }

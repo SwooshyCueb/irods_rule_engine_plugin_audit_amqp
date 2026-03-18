@@ -8,7 +8,9 @@
 #include <nlohmann/json.hpp>
 
 #include <proton/connection_options.hpp>
-#include <proton/duration.hpp>
+#include <proton/delivery_mode.hpp>
+#include <proton/sender_options.hpp>
+#include <proton/source.hpp>
 #include <proton/target.hpp>
 
 #include <cstdint>
@@ -47,8 +49,24 @@ namespace irods::plugin::rule_engine::audit_amqp
 			static constexpr const std::optional<std::string> sasl_mechanisms = std::nullopt;
 			static constexpr const std::optional<bool> sasl_allow_insecure = std::nullopt;
 
-			static constexpr const enum proton::target::durability_mode sender_durability_mode =
+			static constexpr const auto sender_delivery_mode = std::nullopt;
+			static constexpr const std::optional<bool> sender_auto_settle = std::nullopt;
+
+			static constexpr const std::optional<std::string> sender_source_address = std::nullopt;
+			static constexpr const std::optional<bool> sender_source_dynamic = std::nullopt;
+			static constexpr const std::optional<bool> sender_source_anonymous = std::nullopt;
+			static constexpr const std::optional<enum proton::source::distribution_mode> sender_source_distribution_mode = std::nullopt;
+			static constexpr const std::optional<enum proton::source::durability_mode> sender_source_durability_mode = std::nullopt;
+			static constexpr const auto sender_source_timeout = std::nullopt;
+			static constexpr const std::optional<enum proton::source::expiry_policy> sender_source_expiry_policy = std::nullopt;
+
+			static constexpr const std::optional<std::string> sender_target_address = std::nullopt;
+			static constexpr const std::optional<bool> sender_target_dynamic = std::nullopt;
+			static constexpr const std::optional<bool> sender_target_anonymous = std::nullopt;
+			static constexpr const enum proton::target::durability_mode sender_target_durability_mode =
 				proton::target::durability_mode::UNSETTLED_STATE;
+			static constexpr const auto sender_target_timeout = std::nullopt;
+			static constexpr const std::optional<enum proton::target::expiry_policy> sender_target_expiry_policy = std::nullopt;
 
 			static constexpr const bool durable_messages = true;
 		};
@@ -57,6 +75,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		                        const std::string& _re_instance_name);
 
 		void configure_connection(proton::connection_options& _conn_opts);
+		void configure_sender(proton::sender_options& _sender_opts);
 
 		void deinitialize()
 		{
@@ -83,7 +102,23 @@ namespace irods::plugin::rule_engine::audit_amqp
 			sasl_mechanisms_ = std::nullopt;
 			sasl_allow_insecure_ = std::nullopt;
 
-			sender_durability_mode_ = std::nullopt;
+			sender_delivery_mode_ = std::nullopt;
+			sender_auto_settle_ = std::nullopt;
+
+			sender_source_address_ = std::nullopt;
+			sender_source_dynamic_ = std::nullopt;
+			sender_source_anonymous_ = std::nullopt;
+			sender_source_distribution_mode_ = std::nullopt;
+			sender_source_durability_mode_ = std::nullopt;
+			sender_source_timeout_ = std::nullopt;
+			sender_source_expiry_policy_ = std::nullopt;
+
+			sender_target_address_ = std::nullopt;
+			sender_target_dynamic_ = std::nullopt;
+			sender_target_anonymous_ = std::nullopt;
+			sender_target_durability_mode_ = std::nullopt;
+			sender_target_timeout_ = std::nullopt;
+			sender_target_expiry_policy_ = std::nullopt;
 
 			durable_messages_ = std::nullopt;
 		}
@@ -112,7 +147,23 @@ namespace irods::plugin::rule_engine::audit_amqp
 			sasl_mechanisms_ = defaults::sasl_mechanisms;
 			sasl_allow_insecure_ = defaults::sasl_allow_insecure;
 
-			sender_durability_mode_ = defaults::sender_durability_mode;
+			sender_delivery_mode_ = defaults::sender_delivery_mode;
+			sender_auto_settle_ = defaults::sender_auto_settle;
+
+			sender_source_address_ = defaults::sender_source_address;
+			sender_source_dynamic_ = defaults::sender_source_dynamic;
+			sender_source_anonymous_ = defaults::sender_source_anonymous;
+			sender_source_distribution_mode_ = defaults::sender_source_distribution_mode;
+			sender_source_durability_mode_ = defaults::sender_source_durability_mode;
+			sender_source_timeout_ = defaults::sender_source_timeout;
+			sender_source_expiry_policy_ = defaults::sender_source_expiry_policy;
+
+			sender_target_address_ = defaults::sender_target_address;
+			sender_target_dynamic_ = defaults::sender_target_dynamic;
+			sender_target_anonymous_ = defaults::sender_target_anonymous;
+			sender_target_durability_mode_ = defaults::sender_target_durability_mode;
+			sender_target_timeout_ = defaults::sender_target_timeout;
+			sender_target_expiry_policy_ = defaults::sender_target_expiry_policy;
 
 			durable_messages_ = defaults::durable_messages;
 
@@ -137,7 +188,21 @@ namespace irods::plugin::rule_engine::audit_amqp
 		[[nodiscard]] constexpr const std::optional<bool>& sasl_enabled() const { return sasl_enabled_; }
 		[[nodiscard]] constexpr const std::optional<std::string>& sasl_mechanisms() const { return sasl_mechanisms_; }
 		[[nodiscard]] constexpr const std::optional<bool>& sasl_allow_insecure() const { return sasl_allow_insecure_; }
-		[[nodiscard]] constexpr const std::optional<enum proton::target::durability_mode>& sender_durability_mode() const { return sender_durability_mode_; }
+		[[nodiscard]] constexpr const std::optional<proton::delivery_mode>& sender_delivery_mode() const { return sender_delivery_mode_; }
+		[[nodiscard]] constexpr const std::optional<bool>& sender_auto_settle() const { return sender_auto_settle_; }
+		[[nodiscard]] constexpr const std::optional<std::string>& sender_source_address() const { return sender_source_address_; }
+		[[nodiscard]] constexpr const std::optional<bool>& sender_source_dynamic() const { return sender_source_dynamic_; }
+		[[nodiscard]] constexpr const std::optional<bool>& sender_source_anonymous() const { return sender_source_anonymous_; }
+		[[nodiscard]] constexpr const std::optional<enum proton::source::distribution_mode>& sender_source_distribution_mode() const { return sender_source_distribution_mode_; }
+		[[nodiscard]] constexpr const std::optional<enum proton::source::durability_mode>& sender_source_durability_mode() const { return sender_source_durability_mode_; }
+		[[nodiscard]] constexpr const std::optional<proton::duration>& sender_source_timeout() const { return sender_source_timeout_; }
+		[[nodiscard]] constexpr const std::optional<enum proton::source::expiry_policy>& sender_source_expiry_policy() const { return sender_source_expiry_policy_; }
+		[[nodiscard]] constexpr const std::optional<std::string>& sender_target_address() const { return sender_target_address_; }
+		[[nodiscard]] constexpr const std::optional<bool>& sender_target_dynamic() const { return sender_target_dynamic_; }
+		[[nodiscard]] constexpr const std::optional<bool>& sender_target_anonymous() const { return sender_target_anonymous_; }
+		[[nodiscard]] constexpr const std::optional<enum proton::target::durability_mode>& sender_target_durability_mode() const { return sender_target_durability_mode_; }
+		[[nodiscard]] constexpr const std::optional<proton::duration>& sender_target_timeout() const { return sender_target_timeout_; }
+		[[nodiscard]] constexpr const std::optional<enum proton::target::expiry_policy>& sender_target_expiry_policy() const { return sender_target_expiry_policy_; }
 		[[nodiscard]] constexpr const std::optional<bool>& durable_messages() const { return durable_messages_; }
 
 		static const amqp_config& default_config()
@@ -175,7 +240,23 @@ namespace irods::plugin::rule_engine::audit_amqp
 		std::optional<std::string> sasl_mechanisms_;
 		std::optional<bool> sasl_allow_insecure_;
 
-		std::optional<enum proton::target::durability_mode> sender_durability_mode_;
+		std::optional<proton::delivery_mode> sender_delivery_mode_;
+		std::optional<bool> sender_auto_settle_;
+
+		std::optional<std::string> sender_source_address_;
+		std::optional<bool> sender_source_dynamic_;
+		std::optional<bool> sender_source_anonymous_;
+		std::optional<enum proton::source::distribution_mode> sender_source_distribution_mode_;
+		std::optional<enum proton::source::durability_mode> sender_source_durability_mode_;
+		std::optional<proton::duration> sender_source_timeout_;
+		std::optional<enum proton::source::expiry_policy> sender_source_expiry_policy_;
+
+		std::optional<std::string> sender_target_address_;
+		std::optional<bool> sender_target_dynamic_;
+		std::optional<bool> sender_target_anonymous_;
+		std::optional<enum proton::target::durability_mode> sender_target_durability_mode_;
+		std::optional<proton::duration> sender_target_timeout_;
+		std::optional<enum proton::target::expiry_policy> sender_target_expiry_policy_;
 
 		std::optional<bool> durable_messages_;
 

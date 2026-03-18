@@ -14,8 +14,13 @@
 
 #include <proton/connection_options.hpp>
 #include <proton/duration.hpp>
+#include <proton/delivery_mode.hpp>
 #include <proton/reconnect_options.hpp>
+#include <proton/sender_options.hpp>
+#include <proton/source.hpp>
+#include <proton/source_options.hpp>
 #include <proton/target.hpp>
+#include <proton/target_options.hpp>
 
 #include <cstdint>
 #include <limits>
@@ -519,33 +524,347 @@ namespace irods::plugin::rule_engine::audit_amqp
 			reconnect_max_attempts_ = static_cast<int>(reconnect_max_attempts);
 		}
 
-		const auto sender_durability_cfg = _plugin_specific_configuration.find("amqp_sender_durability_mode");
-		if (sender_durability_cfg == _plugin_specific_configuration.end()) {
-			sender_durability_mode_ = defaults::sender_durability_mode;
+		const auto amqp_sender_cfg = _plugin_specific_configuration.find("amqp_sender");
+		if (amqp_sender_cfg == _plugin_specific_configuration.end()) {
+			sender_delivery_mode_ = defaults::sender_delivery_mode;
+			sender_auto_settle_ = defaults::sender_auto_settle;
+
+			sender_source_address_ = defaults::sender_source_address;
+			sender_source_dynamic_ = defaults::sender_source_dynamic;
+			sender_source_anonymous_ = defaults::sender_source_anonymous;
+			sender_source_distribution_mode_ = defaults::sender_source_distribution_mode;
+			sender_source_durability_mode_ = defaults::sender_source_durability_mode;
+			sender_source_timeout_ = defaults::sender_source_timeout;
+			sender_source_expiry_policy_ = defaults::sender_source_expiry_policy;
+
+			sender_target_address_ = defaults::sender_target_address;
+			sender_target_dynamic_ = defaults::sender_target_dynamic;
+			sender_target_anonymous_ = defaults::sender_target_anonymous;
+			sender_target_durability_mode_ = defaults::sender_target_durability_mode;
+			sender_target_timeout_ = defaults::sender_target_timeout;
+			sender_target_expiry_policy_ = defaults::sender_target_expiry_policy;
 		}
 		else {
-			const std::string& sender_durability_string = sender_durability_cfg->get_ref<const std::string&>();
+			const auto& sender_cfg = *amqp_sender_cfg;
 
-			if (sender_durability_string == "NONDURABLE") {
-				sender_durability_mode_ = proton::target::durability_mode::NONDURABLE;
-			}
-			else if (sender_durability_string == "CONFIGURATION") {
-				sender_durability_mode_ = proton::target::durability_mode::CONFIGURATION;
-			}
-			else if (sender_durability_string == "UNSETTLED_STATE") {
-				sender_durability_mode_ = proton::target::durability_mode::UNSETTLED_STATE;
+			const auto sender_delivery_mode_cfg = sender_cfg.find("delivery_mode");
+			if (sender_delivery_mode_cfg == sender_cfg.end()) {
+				sender_delivery_mode_ = defaults::sender_delivery_mode;
 			}
 			else {
-				// clang-format off
-				log_re::error({
-					{"rule_engine_plugin", rule_engine_name},
-					{"instance_name", _re_instance_name},
-					{"log_message", "amqp_sender_durability_mode must be one of "
-					                "[NONDURABLE, CONFIGURATION, UNSETTLED_STATE]."},
-					{"durability_mode", sender_durability_string}
-				});
-				// clang-format on
-				return ERROR(CONFIGURATION_ERROR, "Unrecognized amqp_sender_durability_mode value.");
+				const std::string& sender_delivery_mode = sender_delivery_mode_cfg->get_ref<const std::string&>();
+
+				if (sender_delivery_mode == "NONE") {
+					sender_delivery_mode_.emplace(proton::delivery_mode::modes::NONE);
+				}
+				else if (sender_delivery_mode == "AT_MOST_ONCE") {
+					sender_delivery_mode_.emplace(proton::delivery_mode::modes::AT_MOST_ONCE);
+				}
+				else if (sender_delivery_mode == "AT_LEAST_ONCE") {
+					sender_delivery_mode_.emplace(proton::delivery_mode::modes::AT_LEAST_ONCE);
+				}
+				else {
+					// clang-format off
+					log_re::error({
+						{"rule_engine_plugin", rule_engine_name},
+						{"instance_name", _re_instance_name},
+						{"log_message", "delivery_mode must be one of [NONE, AT_MOST_ONCE, AT_LEAST_ONCE]."},
+						{"amqp_sender::delivery_mode", sender_delivery_mode}
+					});
+					// clang-format on
+					return ERROR(CONFIGURATION_ERROR, "Unrecognized amqp_sender::delivery_mode value.");
+				}
+			}
+
+			const auto sender_auto_settle_cfg = sender_cfg.find("auto_settle");
+			if (sender_auto_settle_cfg == sender_cfg.end()) {
+				sender_auto_settle_ = defaults::sender_auto_settle;
+			}
+			else {
+				sender_auto_settle_ = sender_auto_settle_cfg->get<bool>();
+			}
+
+			const auto amqp_sender_source_cfg = sender_cfg.find("source");
+			if (amqp_sender_source_cfg == sender_cfg.end()) {
+				sender_source_address_ = defaults::sender_source_address;
+				sender_source_dynamic_ = defaults::sender_source_dynamic;
+				sender_source_anonymous_ = defaults::sender_source_anonymous;
+				sender_source_distribution_mode_ = defaults::sender_source_distribution_mode;
+				sender_source_durability_mode_ = defaults::sender_source_durability_mode;
+				sender_source_timeout_ = defaults::sender_source_timeout;
+				sender_source_expiry_policy_ = defaults::sender_source_expiry_policy;
+			}
+			else {
+				const auto& sender_source_cfg = *amqp_sender_source_cfg;
+
+				const auto source_address_cfg = sender_source_cfg.find("address");
+				if (source_address_cfg == sender_source_cfg.end()) {
+					sender_source_address_ = defaults::sender_source_address;
+				}
+				else {
+					sender_source_address_ = source_address_cfg->get_ref<const std::string&>();
+				}
+
+				const auto source_dynamic_cfg = sender_source_cfg.find("dynamic");
+				if (source_dynamic_cfg == sender_source_cfg.end()) {
+					sender_source_dynamic_ = defaults::sender_source_dynamic;
+				}
+				else {
+					sender_source_dynamic_ = source_dynamic_cfg->get<bool>();
+				}
+
+				const auto source_anonymous_cfg = sender_source_cfg.find("anonymous");
+				if (source_anonymous_cfg == sender_source_cfg.end()) {
+					sender_source_anonymous_ = defaults::sender_source_dynamic;
+				}
+				else {
+					sender_source_anonymous_ = source_anonymous_cfg->get<bool>();
+				}
+
+				const auto source_distribution_mode_cfg = sender_source_cfg.find("distribution_mode");
+				if (source_distribution_mode_cfg == sender_source_cfg.end()) {
+					sender_source_distribution_mode_ = defaults::sender_source_distribution_mode;
+				}
+				else {
+					const std::string& source_distribution_mode =
+						source_distribution_mode_cfg->get_ref<const std::string&>();
+
+					if (source_distribution_mode == "UNSPECIFIED") {
+						sender_source_distribution_mode_ = proton::source::distribution_mode::UNSPECIFIED;
+					}
+					else if (source_distribution_mode == "COPY") {
+						sender_source_distribution_mode_ = proton::source::distribution_mode::COPY;
+					}
+					else if (source_distribution_mode == "MOVE") {
+						sender_source_distribution_mode_ = proton::source::distribution_mode::MOVE;
+					}
+					else {
+						// clang-format off
+						log_re::error({
+							{"rule_engine_plugin", rule_engine_name},
+							{"instance_name", _re_instance_name},
+							{"log_message", "distribution_mode must be one of [UNSPECIFIED, COPY, MOVE]."},
+							{"amqp_sender::source::distribution_mode", source_distribution_mode}
+						});
+						// clang-format on
+						return ERROR(CONFIGURATION_ERROR, "Unrecognized amqp_sender::source::distribution_mode value.");
+					}
+				}
+
+				const auto source_durability_mode_cfg = sender_source_cfg.find("durability_mode");
+				if (source_durability_mode_cfg == sender_source_cfg.end()) {
+					sender_source_durability_mode_ = defaults::sender_source_durability_mode;
+				}
+				else {
+					const std::string& source_durability_mode =
+						source_durability_mode_cfg->get_ref<const std::string&>();
+
+					if (source_durability_mode == "NONDURABLE") {
+						sender_source_durability_mode_ = proton::source::durability_mode::NONDURABLE;
+					}
+					else if (source_durability_mode == "CONFIGURATION") {
+						sender_source_durability_mode_ = proton::source::durability_mode::CONFIGURATION;
+					}
+					else if (source_durability_mode == "UNSETTLED_STATE") {
+						sender_source_durability_mode_ = proton::source::durability_mode::UNSETTLED_STATE;
+					}
+					else {
+						// clang-format off
+						log_re::error({
+							{"rule_engine_plugin", rule_engine_name},
+							{"instance_name", _re_instance_name},
+							{"log_message", "durability_mode must be one of "
+							                "[NONDURABLE, CONFIGURATION, UNSETTLED_STATE]."},
+							{"amqp_sender::source::durability_mode", source_durability_mode}
+						});
+						// clang-format on
+						return ERROR(CONFIGURATION_ERROR, "Unrecognized amqp_sender::source::durability_mode value.");
+					}
+				}
+
+				const auto source_timeout_cfg = sender_source_cfg.find("timeout");
+				if (source_timeout_cfg == sender_source_cfg.end()) {
+					sender_source_timeout_ = defaults::sender_source_timeout;
+				}
+				else {
+					const auto& source_timeout =
+						source_timeout_cfg->get_ref<const nlohmann::json::number_unsigned_t&>();
+					if (source_timeout > std::numeric_limits<proton::duration::numeric_type>::max()) {
+						// clang-format off
+						log_re::error({
+							{"rule_engine_plugin", rule_engine_name},
+							{"instance_name", _re_instance_name},
+							{"log_message",
+							 fmt::format(FMT_COMPILE("Sender source timeout must not exceed {}."),
+							             std::numeric_limits<proton::duration::numeric_type>::max())},
+							{"amqp_sender::source::timeout", std::to_string(source_timeout)}
+						});
+						// clang-format on
+						return ERROR(CONFIGURATION_ERROR,
+						             fmt::format(FMT_COMPILE("Sender source timeout greater than {}."),
+						                         std::numeric_limits<proton::duration::numeric_type>::max()));
+					}
+					sender_source_timeout_ = static_cast<proton::duration::numeric_type>(source_timeout);
+				}
+
+				const auto source_expiry_policy_cfg = sender_source_cfg.find("expiry_policy");
+				if (source_expiry_policy_cfg == sender_source_cfg.end()) {
+					sender_source_expiry_policy_ = defaults::sender_source_expiry_policy;
+				}
+				else {
+					const std::string& source_expiry_policy = source_expiry_policy_cfg->get_ref<const std::string&>();
+
+					if (source_expiry_policy == "LINK_CLOSE") {
+						sender_source_expiry_policy_ = proton::source::expiry_policy::LINK_CLOSE;
+					}
+					else if (source_expiry_policy == "SESSION_CLOSE") {
+						sender_source_expiry_policy_ = proton::source::expiry_policy::SESSION_CLOSE;
+					}
+					else if (source_expiry_policy == "CONNECTION_CLOSE") {
+						sender_source_expiry_policy_ = proton::source::expiry_policy::CONNECTION_CLOSE;
+					}
+					else if (source_expiry_policy == "NEVER") {
+						sender_source_expiry_policy_ = proton::source::expiry_policy::NEVER;
+					}
+					else {
+						// clang-format off
+						log_re::error({
+							{"rule_engine_plugin", rule_engine_name},
+							{"instance_name", _re_instance_name},
+							{"log_message", "expiry_policy must be one of "
+							                "[LINK_CLOSE, SESSION_CLOSE, CONNECTION_CLOSE, NEVER]."},
+							{"amqp_sender::source::expiry_policy", source_expiry_policy}
+						});
+						// clang-format on
+						return ERROR(CONFIGURATION_ERROR, "Unrecognized amqp_sender::source::expiry_policy value.");
+					}
+				}
+			}
+
+			const auto amqp_sender_target_cfg = sender_cfg.find("target");
+			if (amqp_sender_target_cfg == sender_cfg.end()) {
+				sender_target_address_ = defaults::sender_target_address;
+				sender_target_dynamic_ = defaults::sender_target_dynamic;
+				sender_target_anonymous_ = defaults::sender_target_anonymous;
+				sender_target_durability_mode_ = defaults::sender_target_durability_mode;
+				sender_target_timeout_ = defaults::sender_target_timeout;
+				sender_target_expiry_policy_ = defaults::sender_target_expiry_policy;
+			}
+			else {
+				const auto& sender_target_cfg = *amqp_sender_target_cfg;
+
+				const auto target_address_cfg = sender_target_cfg.find("address");
+				if (target_address_cfg == sender_target_cfg.end()) {
+					sender_target_address_ = defaults::sender_target_address;
+				}
+				else {
+					sender_target_address_ = target_address_cfg->get_ref<const std::string&>();
+				}
+
+				const auto target_dynamic_cfg = sender_target_cfg.find("dynamic");
+				if (target_dynamic_cfg == sender_target_cfg.end()) {
+					sender_target_dynamic_ = defaults::sender_target_dynamic;
+				}
+				else {
+					sender_target_dynamic_ = target_dynamic_cfg->get<bool>();
+				}
+
+				const auto target_anonymous_cfg = sender_target_cfg.find("anonymous");
+				if (target_anonymous_cfg == sender_target_cfg.end()) {
+					sender_target_anonymous_ = defaults::sender_target_dynamic;
+				}
+				else {
+					sender_target_anonymous_ = target_anonymous_cfg->get<bool>();
+				}
+
+				const auto target_durability_mode_cfg = sender_target_cfg.find("durability_mode");
+				if (target_durability_mode_cfg == sender_target_cfg.end()) {
+					sender_target_durability_mode_ = defaults::sender_target_durability_mode;
+				}
+				else {
+					const std::string& target_durability_mode =
+						target_durability_mode_cfg->get_ref<const std::string&>();
+
+					if (target_durability_mode == "NONDURABLE") {
+						sender_target_durability_mode_ = proton::target::durability_mode::NONDURABLE;
+					}
+					else if (target_durability_mode == "CONFIGURATION") {
+						sender_target_durability_mode_ = proton::target::durability_mode::CONFIGURATION;
+					}
+					else if (target_durability_mode == "UNSETTLED_STATE") {
+						sender_target_durability_mode_ = proton::target::durability_mode::UNSETTLED_STATE;
+					}
+					else {
+						// clang-format off
+						log_re::error({
+							{"rule_engine_plugin", rule_engine_name},
+							{"instance_name", _re_instance_name},
+							{"log_message", "durability_mode must be one of "
+							                "[NONDURABLE, CONFIGURATION, UNSETTLED_STATE]."},
+							{"amqp_sender::target::durability_mode", target_durability_mode}
+						});
+						// clang-format on
+						return ERROR(CONFIGURATION_ERROR, "Unrecognized amqp_sender::target::durability_mode value.");
+					}
+				}
+
+				const auto target_timeout_cfg = sender_target_cfg.find("timeout");
+				if (target_timeout_cfg == sender_target_cfg.end()) {
+					sender_target_timeout_ = defaults::sender_target_timeout;
+				}
+				else {
+					const auto& target_timeout =
+						target_timeout_cfg->get_ref<const nlohmann::json::number_unsigned_t&>();
+					if (target_timeout > std::numeric_limits<proton::duration::numeric_type>::max()) {
+						// clang-format off
+						log_re::error({
+							{"rule_engine_plugin", rule_engine_name},
+							{"instance_name", _re_instance_name},
+							{"log_message",
+							 fmt::format(FMT_COMPILE("Sender target timeout must not exceed {}."),
+							             std::numeric_limits<proton::duration::numeric_type>::max())},
+							{"amqp_sender::target::timeout", std::to_string(target_timeout)}
+						});
+						// clang-format on
+						return ERROR(CONFIGURATION_ERROR,
+						             fmt::format(FMT_COMPILE("Sender target timeout greater than {}."),
+						                         std::numeric_limits<proton::duration::numeric_type>::max()));
+					}
+					sender_target_timeout_ = static_cast<proton::duration::numeric_type>(target_timeout);
+				}
+
+				const auto target_expiry_policy_cfg = sender_target_cfg.find("expiry_policy");
+				if (target_expiry_policy_cfg == sender_target_cfg.end()) {
+					sender_target_expiry_policy_ = defaults::sender_target_expiry_policy;
+				}
+				else {
+					const std::string& target_expiry_policy = target_expiry_policy_cfg->get_ref<const std::string&>();
+
+					if (target_expiry_policy == "LINK_CLOSE") {
+						sender_target_expiry_policy_ = proton::target::expiry_policy::LINK_CLOSE;
+					}
+					else if (target_expiry_policy == "SESSION_CLOSE") {
+						sender_target_expiry_policy_ = proton::target::expiry_policy::SESSION_CLOSE;
+					}
+					else if (target_expiry_policy == "CONNECTION_CLOSE") {
+						sender_target_expiry_policy_ = proton::target::expiry_policy::CONNECTION_CLOSE;
+					}
+					else if (target_expiry_policy == "NEVER") {
+						sender_target_expiry_policy_ = proton::target::expiry_policy::NEVER;
+					}
+					else {
+						// clang-format off
+						log_re::error({
+							{"rule_engine_plugin", rule_engine_name},
+							{"instance_name", _re_instance_name},
+							{"log_message", "expiry_policy must be one of "
+							                "[LINK_CLOSE, SESSION_CLOSE, CONNECTION_CLOSE, NEVER]."},
+							{"amqp_sender::target::expiry_policy", target_expiry_policy}
+						});
+						// clang-format on
+						return ERROR(CONFIGURATION_ERROR, "Unrecognized amqp_sender::target::expiry_policy value.");
+					}
+				}
 			}
 		}
 
@@ -612,5 +931,60 @@ namespace irods::plugin::rule_engine::audit_amqp
 			reconn_opts.max_attempts(*reconnect_max_attempts_);
 		}
 		_conn_opts.reconnect(reconn_opts);
+	}
+
+	void amqp_config::configure_sender(proton::sender_options& _sender_opts)
+	{
+		if (sender_delivery_mode_.has_value()) {
+			_sender_opts.delivery_mode(*sender_delivery_mode_);
+		}
+		if (sender_auto_settle_.has_value()) {
+			_sender_opts.auto_settle(*sender_auto_settle_);
+		}
+
+		proton::source_options source_opts;
+		if (sender_source_address_.has_value()) {
+			source_opts.address(*sender_source_address_);
+		}
+		if (sender_source_dynamic_.has_value()) {
+			source_opts.dynamic(*sender_source_dynamic_);
+		}
+		if (sender_source_anonymous_.has_value()) {
+			source_opts.anonymous(*sender_source_anonymous_);
+		}
+		if (sender_source_distribution_mode_.has_value()) {
+			source_opts.distribution_mode(*sender_source_distribution_mode_);
+		}
+		if (sender_source_durability_mode_.has_value()) {
+			source_opts.durability_mode(*sender_source_durability_mode_);
+		}
+		if (sender_source_timeout_.has_value()) {
+			source_opts.timeout(*sender_source_timeout_);
+		}
+		if (sender_source_expiry_policy_.has_value()) {
+			source_opts.expiry_policy(*sender_source_expiry_policy_);
+		}
+		_sender_opts.source(source_opts);
+
+		proton::target_options target_opts;
+		if (sender_target_address_.has_value()) {
+			target_opts.address(*sender_target_address_);
+		}
+		if (sender_target_dynamic_.has_value()) {
+			target_opts.dynamic(*sender_target_dynamic_);
+		}
+		if (sender_target_anonymous_.has_value()) {
+			target_opts.anonymous(*sender_target_anonymous_);
+		}
+		if (sender_target_durability_mode_.has_value()) {
+			target_opts.durability_mode(*sender_target_durability_mode_);
+		}
+		if (sender_target_timeout_.has_value()) {
+			target_opts.timeout(*sender_target_timeout_);
+		}
+		if (sender_target_expiry_policy_.has_value()) {
+			target_opts.expiry_policy(*sender_target_expiry_policy_);
+		}
+		_sender_opts.target(target_opts);
 	}
 } //namespace irods::plugin::rule_engine::audit_amqp

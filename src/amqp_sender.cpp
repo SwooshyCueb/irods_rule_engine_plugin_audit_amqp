@@ -137,12 +137,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 		amqp_config_.configure_connection(conn_opts);
 
 		proton::sender_options sender_opts;
-		proton::target_options target_opts;
-		if (amqp_config_.sender_durability_mode().has_value()) {
-			target_opts.durability_mode(*amqp_config_.sender_durability_mode());
-		}
 		sender_opts.handler(*this);
-		sender_opts.target(target_opts);
+		amqp_config_.configure_sender(sender_opts);
 
 		container_.emplace(*this);
 		proton::container& container = *container_;
@@ -411,12 +407,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 		amqp_config_.configure_connection(conn_opts);
 
 		proton::sender_options sender_opts;
-		proton::target_options target_opts;
-		if (amqp_config_.sender_durability_mode().has_value()) {
-			target_opts.durability_mode(*amqp_config_.sender_durability_mode());
-		}
 		sender_opts.handler(*this);
-		sender_opts.target(target_opts);
+		amqp_config_.configure_sender(sender_opts);
 
 		connection_ = _container.connect(amqp_config_.primary_endpoint(), conn_opts);
 		sender_ = connection_->open_sender(amqp_config_.path(), sender_opts);

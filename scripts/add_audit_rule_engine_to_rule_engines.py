@@ -24,7 +24,12 @@ def main():
                         "allow_insecure": True
                     },
                     "amqp_connection_max_frame_size": 65536,
-                    "amqp_sender_durability_mode": "UNSETTLED_STATE",
+                    "amqp_sender": {
+                        "delivery_mode": "AT_LEAST_ONCE",
+                        "target": {
+                            "durability_mode": "UNSETTLED_STATE"
+                        }
+                    },
                     "amqp_durable_messages": True,
                     "test_mode": True,
                     "log_path_prefix": "/tmp/irods"
