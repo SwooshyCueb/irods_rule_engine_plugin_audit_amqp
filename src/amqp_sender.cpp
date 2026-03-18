@@ -1,4 +1,5 @@
 #include "irods/private/audit_amqp.hpp"
+#include "irods/private/amqp_config.hpp"
 #include "irods/private/amqp_sender.hpp"
 
 #include <irods/irods_configuration_keywords.hpp>
@@ -22,7 +23,6 @@
 #include <proton/sender.hpp>
 #include <proton/sender_options.hpp>
 #include <proton/session.hpp>
-#include <proton/target.hpp>
 #include <proton/target_options.hpp>
 #include <proton/timestamp.hpp>
 #include <proton/tracker.hpp>
@@ -43,8 +43,7 @@
 namespace irods::plugin::rule_engine::audit_amqp
 {
 	amqp_sender::amqp_sender()
-		: is_configured_(false)
-		, is_open_(false)
+		: is_open_(false)
 		, connection_sem_(0)
 	{ }
 
@@ -53,22 +52,13 @@ namespace irods::plugin::rule_engine::audit_amqp
 		close();
 	}
 
-	irods::error amqp_sender::configure(const std::string& _re_instance_name,
-	                                    const std::vector<std::string>& endpoints,
-	                                    const std::string& _path,
-	                                    const std::string& _user,
-	                                    const std::string& _password,
-	                                    const std::optional<bool> _sasl_enabled,
-	                                    const std::optional<std::string> _sasl_mechanisms,
-	                                    const std::optional<bool> _sasl_allow_insecure,
-	                                    const std::optional<enum proton::target::durability_mode> _sender_durability_mode,
-	                                    const std::optional<bool> _durable_messages)
+	irods::error amqp_sender::configure(const std::string& _re_instance_name, const amqp_config& _amqp_config)
 	{
 		if (is_open_) {
 			return ERROR(SYS_ALREADY_INITIALIZED, "amqp_sender::configure called on open amqp_sender");
 		}
-		if (endpoints.empty()) {
-			return ERROR(SYS_INVALID_SERVER_HOST, "amqp_sender::configure called with empty endpoint list");
+		if (!_amqp_config.is_initialized()) {
+			return ERROR(SYS_UNINITIALIZED, "amqp_sender::configure called with uninitialized amqp_config argument");
 		}
 
 #ifdef IRODS_AUDIT_EXTRA_TRACE
@@ -77,34 +67,19 @@ namespace irods::plugin::rule_engine::audit_amqp
 			{"rule_engine_plugin", rule_engine_name},
 			{"instance_name", _re_instance_name},
 			{"call", __PRETTY_FUNCTION__},
+			{"primary_endpoint", _amqp_config.primary_endpoint()},
 		});
 		// clang-format on
 		std::uint32_t ep_ctr = 0;
-		for (const std::string& endpoint : endpoints) {
-			log_kvs.emplace_back(fmt::format(FMT_COMPILE("endpoint_{0:02d}"), ep_ctr++), endpoint);
+		for (const std::string& endpoint : _amqp_config.failover_endpoints()) {
+			log_kvs.emplace_back(fmt::format(FMT_COMPILE("failover_endpoint_{0:02d}"), ep_ctr++), endpoint);
 		}
-		log_kvs.emplace_back("path", _path);
+		log_kvs.emplace_back("path", _amqp_config.path());
 		log_re::trace(log_kvs);
 #endif
 
 		re_instance_name_ = _re_instance_name;
-
-		failover_endpoints_.clear();
-		auto e_itr = endpoints.begin();
-		primary_endpoint_ = *(e_itr++);
-		failover_endpoints_.assign(e_itr, endpoints.end());
-		failover_endpoints_.shrink_to_fit();
-
-		path_ = _path;
-		user_ = _user;
-		password_ = _password;
-		sasl_enabled_ = _sasl_enabled;
-		sasl_mechanisms_ = _sasl_mechanisms;
-		sasl_allow_insecure_ = _sasl_allow_insecure;
-		sender_durability_mode_ = _sender_durability_mode;
-		durable_messages_ = _durable_messages;
-
-		is_configured_ = true;
+		amqp_config_ = _amqp_config;
 
 		return SUCCESS();
 	}
@@ -125,14 +100,14 @@ namespace irods::plugin::rule_engine::audit_amqp
 			return ERROR(RE_RUNTIME_ERROR, "amqp_sender::unconfigure called on open amqp_sender");
 		}
 
-		is_configured_ = false;
+		amqp_config_.deinitialize();
 
 		return SUCCESS();
 	}
 
 	irods::error amqp_sender::open()
 	{
-		if (!is_configured_) {
+		if (!amqp_config_.is_initialized()) {
 			return ERROR(SYS_UNINITIALIZED, "amqp_sender::open called on unconfigured amqp_sender");
 		}
 
@@ -146,44 +121,44 @@ namespace irods::plugin::rule_engine::audit_amqp
 			{"rule_engine_plugin", rule_engine_name},
 			{"instance_name", re_instance_name_},
 			{"call", __PRETTY_FUNCTION__},
-			{"primary_endpoint", primary_endpoint_},
+			{"primary_endpoint", amqp_config_.primary_endpoint()},
 		});
 		// clang-format on
 		std::uint32_t ep_ctr = 0;
-		for (const std::string& endpoint : failover_endpoints_) {
+		for (const std::string& endpoint : amqp_config_.failover_endpoints()) {
 			log_kvs.emplace_back(fmt::format(FMT_COMPILE("failover_endpoint_{0:02d}"), ep_ctr++), endpoint);
 		}
-		log_kvs.emplace_back("path", path_);
+		log_kvs.emplace_back("path", amqp_config_.path());
 		log_re::trace(log_kvs);
 #endif
 
 		proton::connection_options conn_opts;
 		proton::reconnect_options reconn_opts;
 		conn_opts.handler(*this);
-		if (!failover_endpoints_.empty()) {
-			conn_opts.failover_urls(failover_endpoints_);
+		if (!amqp_config_.failover_endpoints().empty()) {
+			conn_opts.failover_urls(amqp_config_.failover_endpoints());
 		}
 		conn_opts.reconnect(reconn_opts);
-		if (!user_.empty()) {
-			conn_opts.user(user_);
+		if (!amqp_config_.user().empty()) {
+			conn_opts.user(amqp_config_.user());
 		}
-		if (!password_.empty()) {
-			conn_opts.password(password_);
+		if (!amqp_config_.password().empty()) {
+			conn_opts.password(amqp_config_.password());
 		}
-		if (sasl_enabled_.has_value()) {
-			conn_opts.sasl_enabled(*sasl_enabled_);
+		if (amqp_config_.sasl_enabled().has_value()) {
+			conn_opts.sasl_enabled(*amqp_config_.sasl_enabled());
 		}
-		if (sasl_mechanisms_.has_value()) {
-			conn_opts.sasl_allowed_mechs(*sasl_mechanisms_);
+		if (amqp_config_.sasl_mechanisms().has_value()) {
+			conn_opts.sasl_allowed_mechs(*amqp_config_.sasl_mechanisms());
 		}
-		if (sasl_allow_insecure_.has_value()) {
-			conn_opts.sasl_allow_insecure_mechs(*sasl_allow_insecure_);
+		if (amqp_config_.sasl_allow_insecure().has_value()) {
+			conn_opts.sasl_allow_insecure_mechs(*amqp_config_.sasl_allow_insecure());
 		}
 
 		proton::sender_options sender_opts;
 		proton::target_options target_opts;
-		if (sender_durability_mode_.has_value()) {
-			target_opts.durability_mode(*sender_durability_mode_);
+		if (amqp_config_.sender_durability_mode().has_value()) {
+			target_opts.durability_mode(*amqp_config_.sender_durability_mode());
 		}
 		sender_opts.handler(*this);
 		sender_opts.target(target_opts);
@@ -384,8 +359,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 		proton::message msg(msg_str);
 		msg.content_type("application/json");
 		msg.creation_time(proton::timestamp(static_cast<proton::timestamp::numeric_type>(_timestamp_ms)));
-		if (durable_messages_.has_value()) {
-			msg.durable(*durable_messages_);
+		if (amqp_config_.durable_messages().has_value()) {
+			msg.durable(*amqp_config_.durable_messages());
 		}
 
 		std::binary_semaphore send_semaphore(0);
@@ -453,36 +428,36 @@ namespace irods::plugin::rule_engine::audit_amqp
 		proton::connection_options conn_opts;
 		proton::reconnect_options reconn_opts;
 		conn_opts.handler(*this);
-		if (!failover_endpoints_.empty()) {
-			conn_opts.failover_urls(failover_endpoints_);
+		if (!amqp_config_.failover_endpoints().empty()) {
+			conn_opts.failover_urls(amqp_config_.failover_endpoints());
 		}
 		conn_opts.reconnect(reconn_opts);
-		if (!user_.empty()) {
-			conn_opts.user(user_);
+		if (!amqp_config_.user().empty()) {
+			conn_opts.user(amqp_config_.user());
 		}
-		if (!password_.empty()) {
-			conn_opts.password(password_);
+		if (!amqp_config_.password().empty()) {
+			conn_opts.password(amqp_config_.password());
 		}
-		if (sasl_enabled_.has_value()) {
-			conn_opts.sasl_enabled(*sasl_enabled_);
+		if (amqp_config_.sasl_enabled().has_value()) {
+			conn_opts.sasl_enabled(*amqp_config_.sasl_enabled());
 		}
-		if (sasl_mechanisms_.has_value()) {
-			conn_opts.sasl_allowed_mechs(*sasl_mechanisms_);
+		if (amqp_config_.sasl_mechanisms().has_value()) {
+			conn_opts.sasl_allowed_mechs(*amqp_config_.sasl_mechanisms());
 		}
-		if (sasl_allow_insecure_.has_value()) {
-			conn_opts.sasl_allow_insecure_mechs(*sasl_allow_insecure_);
+		if (amqp_config_.sasl_allow_insecure().has_value()) {
+			conn_opts.sasl_allow_insecure_mechs(*amqp_config_.sasl_allow_insecure());
 		}
 
 		proton::sender_options sender_opts;
 		proton::target_options target_opts;
-		if (sender_durability_mode_.has_value()) {
-			target_opts.durability_mode(*sender_durability_mode_);
+		if (amqp_config_.sender_durability_mode().has_value()) {
+			target_opts.durability_mode(*amqp_config_.sender_durability_mode());
 		}
 		sender_opts.handler(*this);
 		sender_opts.target(target_opts);
 
-		connection_ = _container.connect(primary_endpoint_, conn_opts);
-		sender_ = connection_->open_sender(path_, sender_opts);
+		connection_ = _container.connect(amqp_config_.primary_endpoint(), conn_opts);
+		sender_ = connection_->open_sender(amqp_config_.path(), sender_opts);
 
 		is_open_ = true;
 

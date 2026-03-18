@@ -72,13 +72,15 @@ add_library(
   ${PLUGIN}
   MODULE
   "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/amqp_config.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/amqp_sender.cpp"
   )
 set(
   ${PLUGIN}_HEADERS
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/irods/private/amqp_config.hpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/irods/private/amqp_sender.hpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/include/irods/private/audit_amqp.hpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/include/irods/private/audit_b64enc.hpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/include/irods/private/amqp_sender.hpp"
   )
 target_sources(${PLUGIN} PRIVATE ${${PLUGIN}_HEADERS})
 target_compile_options(${PLUGIN} PRIVATE -Wno-write-strings)

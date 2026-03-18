@@ -2,6 +2,7 @@
 #define IRODS_AUDIT_AMQP_SENDER_HPP
 
 #include "irods/private/audit_amqp.hpp"
+#include "irods/private/amqp_config.hpp"
 
 #include <irods/irods_error.hpp>
 
@@ -13,7 +14,6 @@
 #include <proton/messaging_handler.hpp>
 #include <proton/sender.hpp>
 #include <proton/session.hpp>
-#include <proton/target.hpp>
 #include <proton/tracker.hpp>
 #include <proton/transport.hpp>
 
@@ -26,7 +26,6 @@
 #include <semaphore>
 #include <string>
 #include <thread>
-#include <vector>
 
 namespace irods::plugin::rule_engine::audit_amqp
 {
@@ -36,22 +35,13 @@ namespace irods::plugin::rule_engine::audit_amqp
 		amqp_sender();
 		~amqp_sender() override;
 
-		irods::error configure(const std::string& _re_instance_name,
-		                       const std::vector<std::string>& _endpoints,
-		                       const std::string& _path,
-		                       const std::string& _user,
-		                       const std::string& _password,
-		                       const std::optional<bool> _sasl_enabled,
-		                       const std::optional<std::string> _sasl_mechanisms,
-		                       const std::optional<bool> _sasl_allow_insecure,
-		                       const std::optional<enum proton::target::durability_mode> _sender_durability_mode,
-		                       const std::optional<bool> _durable_messages);
+		irods::error configure(const std::string& _re_instance_name, const amqp_config& _amqp_config);
 		irods::error unconfigure();
 
 		irods::error open();
 		void close();
 
-		[[nodiscard]] constexpr bool is_configured() const { return is_configured_; }
+		[[nodiscard]] constexpr bool is_configured() const { return amqp_config_.is_initialized(); }
 		[[nodiscard]] constexpr bool is_open() const { return is_open_; }
 		[[nodiscard]] constexpr const std::string& re_instance_name() const { return re_instance_name_; }
 
@@ -88,21 +78,11 @@ namespace irods::plugin::rule_engine::audit_amqp
 #endif
 
 	  private:
-		bool is_configured_;
 		bool is_open_;
 
 		std::string re_instance_name_;
 
-		std::string primary_endpoint_;
-		std::vector<std::string> failover_endpoints_;
-		std::string path_;
-		std::string user_;
-		std::string password_;
-		std::optional<bool> sasl_enabled_;
-		std::optional<std::string> sasl_mechanisms_;
-		std::optional<bool> sasl_allow_insecure_;
-		std::optional<enum proton::target::durability_mode> sender_durability_mode_;
-		std::optional<bool> durable_messages_;
+		amqp_config amqp_config_;
 
 		std::optional<std::thread> proton_thread_;
 		std::mutex amqp_send_mutex_;
