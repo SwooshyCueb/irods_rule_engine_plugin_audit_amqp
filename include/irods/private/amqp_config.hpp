@@ -10,6 +10,7 @@
 #include <proton/connection_options.hpp>
 #include <proton/delivery_mode.hpp>
 #include <proton/sender_options.hpp>
+#include <proton/ssl.hpp>
 #include <proton/source.hpp>
 #include <proton/target.hpp>
 
@@ -44,6 +45,12 @@ namespace irods::plugin::rule_engine::audit_amqp
 			static constexpr const std::optional<float> reconnect_delay_multiplier = std::nullopt;
 			static constexpr const auto reconnect_max_delay = std::nullopt;
 			static constexpr const std::optional<int> reconnect_max_attempts = std::nullopt;
+
+			static constexpr const std::optional<enum proton::ssl::verify_mode> ssl_verify_mode = std::nullopt;
+			static constexpr const std::optional<std::string> ssl_trust_db = std::nullopt;
+			static constexpr const std::optional<std::string> ssl_certdb_main = std::nullopt;
+			static constexpr const std::optional<std::string> ssl_certdb_extra = std::nullopt;
+			static constexpr const std::optional<std::string> ssl_cert_password = std::nullopt;
 
 			static constexpr const std::optional<bool> sasl_enabled = std::nullopt;
 			static constexpr const std::optional<std::string> sasl_mechanisms = std::nullopt;
@@ -98,6 +105,12 @@ namespace irods::plugin::rule_engine::audit_amqp
 			reconnect_max_delay_ = std::nullopt;
 			reconnect_max_attempts_ = std::nullopt;
 
+			ssl_verify_mode_ = std::nullopt;
+			ssl_trust_db_ = std::nullopt;
+			ssl_certdb_main_ = std::nullopt;
+			ssl_certdb_extra_ = std::nullopt;
+			ssl_cert_password_ = std::nullopt;
+
 			sasl_enabled_ = std::nullopt;
 			sasl_mechanisms_ = std::nullopt;
 			sasl_allow_insecure_ = std::nullopt;
@@ -143,6 +156,12 @@ namespace irods::plugin::rule_engine::audit_amqp
 			reconnect_max_delay_ = defaults::reconnect_max_delay;
 			reconnect_max_attempts_ = defaults::reconnect_max_attempts;
 
+			ssl_verify_mode_ = defaults::ssl_verify_mode;
+			ssl_trust_db_ = defaults::ssl_trust_db;
+			ssl_certdb_main_ = defaults::ssl_certdb_main;
+			ssl_certdb_extra_ = defaults::ssl_certdb_extra;
+			ssl_cert_password_ = defaults::ssl_cert_password;
+
 			sasl_enabled_ = defaults::sasl_enabled;
 			sasl_mechanisms_ = defaults::sasl_mechanisms;
 			sasl_allow_insecure_ = defaults::sasl_allow_insecure;
@@ -185,6 +204,11 @@ namespace irods::plugin::rule_engine::audit_amqp
 		[[nodiscard]] constexpr const std::optional<float>& reconnect_delay_multiplier() const { return reconnect_delay_multiplier_; }
 		[[nodiscard]] constexpr const std::optional<proton::duration>& reconnect_max_delay() const { return reconnect_max_delay_; }
 		[[nodiscard]] constexpr const std::optional<int>& reconnect_max_attempts() const { return reconnect_max_attempts_; }
+		[[nodiscard]] constexpr const std::optional<enum proton::ssl::verify_mode>& ssl_verify_mode() const { return ssl_verify_mode_; }
+		[[nodiscard]] constexpr const std::optional<std::string>& ssl_trust_db() const { return ssl_trust_db_; }
+		[[nodiscard]] constexpr const std::optional<std::string>& ssl_certdb_main() const { return ssl_certdb_main_; }
+		[[nodiscard]] constexpr const std::optional<std::string>& ssl_certdb_extra() const { return ssl_certdb_extra_; }
+		[[nodiscard]] constexpr const std::optional<std::string>& ssl_cert_password() const { return ssl_cert_password_; }
 		[[nodiscard]] constexpr const std::optional<bool>& sasl_enabled() const { return sasl_enabled_; }
 		[[nodiscard]] constexpr const std::optional<std::string>& sasl_mechanisms() const { return sasl_mechanisms_; }
 		[[nodiscard]] constexpr const std::optional<bool>& sasl_allow_insecure() const { return sasl_allow_insecure_; }
@@ -235,6 +259,12 @@ namespace irods::plugin::rule_engine::audit_amqp
 		std::optional<float> reconnect_delay_multiplier_;
 		std::optional<proton::duration> reconnect_max_delay_;
 		std::optional<int> reconnect_max_attempts_;
+
+		std::optional<enum proton::ssl::verify_mode> ssl_verify_mode_;
+		std::optional<std::string> ssl_trust_db_;
+		std::optional<std::string> ssl_certdb_main_;
+		std::optional<std::string> ssl_certdb_extra_;
+		std::optional<std::string> ssl_cert_password_;
 
 		std::optional<bool> sasl_enabled_;
 		std::optional<std::string> sasl_mechanisms_;

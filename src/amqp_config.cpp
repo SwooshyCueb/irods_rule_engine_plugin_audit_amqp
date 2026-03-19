@@ -19,6 +19,7 @@
 #include <proton/sender_options.hpp>
 #include <proton/source.hpp>
 #include <proton/source_options.hpp>
+#include <proton/ssl.hpp>
 #include <proton/target.hpp>
 #include <proton/target_options.hpp>
 
@@ -312,6 +313,115 @@ namespace irods::plugin::rule_engine::audit_amqp
 		}
 
 		path_ = path_ss.str();
+
+		const auto amqp_ssl_cfg = _plugin_specific_configuration.find("amqp_ssl");
+		if (amqp_ssl_cfg == _plugin_specific_configuration.end()) {
+			ssl_verify_mode_ = defaults::ssl_verify_mode;
+			ssl_trust_db_ = defaults::ssl_trust_db;
+			ssl_certdb_main_ = defaults::ssl_certdb_main;
+			ssl_certdb_extra_ = defaults::ssl_certdb_extra;
+			ssl_cert_password_ = defaults::ssl_cert_password;
+		}
+		else {
+			const auto& ssl_cfg = *amqp_ssl_cfg;
+
+			const auto ssl_verify_mode_cfg = ssl_cfg.find("verify_mode");
+			if (ssl_verify_mode_cfg == ssl_cfg.end()) {
+				ssl_verify_mode_ = defaults::ssl_verify_mode;
+			}
+			else {
+				const std::string& ssl_verify_mode = ssl_verify_mode_cfg->get_ref<const std::string&>();
+
+				if (ssl_verify_mode == "VERIFY_PEER") {
+					ssl_verify_mode_ = proton::ssl::verify_mode::VERIFY_PEER;
+				}
+				else if (ssl_verify_mode == "ANONYMOUS_PEER") {
+					ssl_verify_mode_ = proton::ssl::verify_mode::ANONYMOUS_PEER;
+				}
+				else if (ssl_verify_mode == "VERIFY_PEER_NAME") {
+					ssl_verify_mode_ = proton::ssl::verify_mode::VERIFY_PEER_NAME;
+				}
+				else {
+					// clang-format off
+					log_re::error({
+						{"rule_engine_plugin", rule_engine_name},
+						{"instance_name", _re_instance_name},
+						{"log_message", "verify_mode must be one of [VERIFY_PEER, ANONYMOUS_PEER, VERIFY_PEER_NAME]."},
+						{"amqp_ssl::verify_mode", ssl_verify_mode}
+					});
+					// clang-format on
+					return ERROR(CONFIGURATION_ERROR, "Unrecognized amqp_ssl::verify_mode value.");
+				}
+			}
+
+			bool found_trust_db = false;
+			const auto ssl_trust_db_cfg = ssl_cfg.find("trust_db");
+			if (ssl_trust_db_cfg == ssl_cfg.end()) {
+				ssl_trust_db_ = defaults::ssl_trust_db;
+			}
+			else {
+				ssl_trust_db_ = ssl_trust_db_cfg->get_ref<const std::string&>();
+				found_trust_db = true;
+			}
+
+			bool found_certdb_main = false;
+			const auto ssl_certdb_main_cfg = ssl_cfg.find("certdb_main");
+			if (ssl_certdb_main_cfg == ssl_cfg.end()) {
+				ssl_certdb_main_ = defaults::ssl_certdb_main;
+			}
+			else if (!found_trust_db) {
+				ssl_certdb_main_ = defaults::ssl_certdb_main;
+				// clang-format off
+				log_re::warn({
+					{"rule_engine_plugin", rule_engine_name},
+					{"instance_name", _re_instance_name},
+					{"log_message", "Found certdb_main but no trust_db. Ignoring certdb_main."}
+				});
+				// clang-format on
+			}
+			else {
+				ssl_certdb_main_ = ssl_certdb_main_cfg->get_ref<const std::string&>();
+				found_certdb_main = true;
+			}
+
+			bool found_certdb_extra = false;
+			const auto ssl_certdb_extra_cfg = ssl_cfg.find("certdb_extra");
+			if (ssl_certdb_extra_cfg == ssl_cfg.end()) {
+				ssl_certdb_extra_ = defaults::ssl_certdb_extra;
+			}
+			else if (!found_certdb_main) {
+				ssl_certdb_extra_ = defaults::ssl_certdb_extra;
+				// clang-format off
+				log_re::warn({
+					{"rule_engine_plugin", rule_engine_name},
+					{"instance_name", _re_instance_name},
+					{"log_message", "Found certdb_extra but no certdb_main. Ignoring certdb_extra."}
+				});
+				// clang-format on
+			}
+			else {
+				ssl_certdb_extra_ = ssl_certdb_extra_cfg->get_ref<const std::string&>();
+				found_certdb_extra = true;
+			}
+
+			const auto ssl_cert_password_cfg = ssl_cfg.find("cert_password");
+			if (ssl_cert_password_cfg == ssl_cfg.end()) {
+				ssl_cert_password_ = defaults::ssl_cert_password;
+			}
+			else if (!found_certdb_extra) {
+				ssl_cert_password_ = defaults::ssl_cert_password;
+				// clang-format off
+				log_re::warn({
+					{"rule_engine_plugin", rule_engine_name},
+					{"instance_name", _re_instance_name},
+					{"log_message", "Found cert_password but no certdb_extra. Ignoring cert_password."}
+				});
+				// clang-format on
+			}
+			else {
+				ssl_cert_password_ = ssl_cert_password_cfg->get_ref<const std::string&>();
+			}
+		}
 
 		const auto amqp_sasl_cfg = _plugin_specific_configuration.find("amqp_sasl");
 		if (amqp_sasl_cfg == _plugin_specific_configuration.end()) {
@@ -915,6 +1025,72 @@ namespace irods::plugin::rule_engine::audit_amqp
 		}
 		if (sasl_allow_insecure_.has_value()) {
 			_conn_opts.sasl_allow_insecure_mechs(*sasl_allow_insecure_);
+		}
+
+		if (ssl_trust_db_.has_value()) {
+			if (ssl_certdb_main_.has_value()) {
+				if (ssl_certdb_extra_.has_value()) {
+					if (ssl_cert_password_.has_value()) {
+						const proton::ssl_certificate ssl_cert(
+							*ssl_certdb_main_, *ssl_certdb_extra_, *ssl_cert_password_);
+						if (ssl_verify_mode_.has_value()) {
+							// set: verify_mode, trust_db, certdb_main, certdb_extra, cert_password
+							_conn_opts.ssl_client_options(
+								proton::ssl_client_options(ssl_cert, *ssl_trust_db_, *ssl_verify_mode_));
+						}
+						else {
+							// set: trust_db, certdb_main, certdb_extra, cert_password
+							// unset: verify_mode
+							_conn_opts.ssl_client_options(proton::ssl_client_options(ssl_cert, *ssl_trust_db_));
+						}
+					}
+					else {
+						const proton::ssl_certificate ssl_cert(*ssl_certdb_main_, *ssl_certdb_extra_);
+						if (ssl_verify_mode_.has_value()) {
+							// set: verify_mode, trust_db, certdb_main, certdb_extra
+							// unset: cert_password
+							_conn_opts.ssl_client_options(
+								proton::ssl_client_options(ssl_cert, *ssl_trust_db_, *ssl_verify_mode_));
+						}
+						else {
+							// set: trust_db, certdb_main, certdb_extra
+							// unset: verify_mode, cert_password
+							_conn_opts.ssl_client_options(proton::ssl_client_options(ssl_cert, *ssl_trust_db_));
+						}
+					}
+				}
+				else {
+					const proton::ssl_certificate ssl_cert(*ssl_certdb_main_);
+					if (ssl_verify_mode_.has_value()) {
+						// set: verify_mode, trust_db, certdb_main
+						// unset: certdb_extra, cert_password
+						_conn_opts.ssl_client_options(
+							proton::ssl_client_options(ssl_cert, *ssl_trust_db_, *ssl_verify_mode_));
+					}
+					else {
+						// set: trust_db, certdb_main
+						// unset: verify_mode, certdb_extra, cert_password
+						_conn_opts.ssl_client_options(proton::ssl_client_options(ssl_cert, *ssl_trust_db_));
+					}
+				}
+			}
+			else {
+				if (ssl_verify_mode_.has_value()) {
+					// set: verify_mode, trust_db
+					// unset: certdb_main, certdb_extra, cert_password
+					_conn_opts.ssl_client_options(proton::ssl_client_options(*ssl_trust_db_, *ssl_verify_mode_));
+				}
+				else {
+					// set: trust_db
+					// unset: verify_mode, certdb_extra, cert_password, certdb_main
+					_conn_opts.ssl_client_options(proton::ssl_client_options(*ssl_trust_db_));
+				}
+			}
+		}
+		else if (ssl_verify_mode_.has_value()) {
+			// set: verify_mode
+			// unset: trust_db, certdb_main, certdb_extra, cert_password
+			_conn_opts.ssl_client_options(proton::ssl_client_options(*ssl_verify_mode_));
 		}
 
 		proton::reconnect_options reconn_opts;
