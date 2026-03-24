@@ -134,7 +134,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 		proton::connection_options conn_opts;
 		conn_opts.handler(*this);
-		amqp_config_.configure_connection(conn_opts);
+		amqp_config_.configure_connection(conn_opts, re_instance_name_);
 
 		proton::sender_options sender_opts;
 		sender_opts.handler(*this);
@@ -404,7 +404,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 		proton::connection_options conn_opts;
 		conn_opts.handler(*this);
-		amqp_config_.configure_connection(conn_opts);
+		amqp_config_.configure_connection(conn_opts, re_instance_name_);
 
 		proton::sender_options sender_opts;
 		sender_opts.handler(*this);

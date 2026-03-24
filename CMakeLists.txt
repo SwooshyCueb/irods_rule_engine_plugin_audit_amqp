@@ -68,27 +68,60 @@ find_package(OpenSSL REQUIRED COMPONENTS Crypto SSL)
 find_package(nlohmann_json "3.6.1" REQUIRED)
 find_package(fmt "8.1.1" REQUIRED)
 
-add_library(
-  ${PLUGIN}
-  MODULE
+set(
+  ${PLUGIN}_SOURCES
   "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/amqp_config.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/amqp_sender.cpp"
-  )
+)
 set(
   ${PLUGIN}_HEADERS
   "${CMAKE_CURRENT_SOURCE_DIR}/include/irods/private/amqp_config.hpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/include/irods/private/amqp_sender.hpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/include/irods/private/audit_amqp.hpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/include/irods/private/audit_b64enc.hpp"
-  )
-target_sources(${PLUGIN} PRIVATE ${${PLUGIN}_HEADERS})
+)
+set(
+  ${PLUGIN}_HEADERS_GENERATORS
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/irods/private/audit_amqp_version.hpp.in"
+)
+set(
+  ${PLUGIN}_HEADERS_GENERATED
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/irods/private/audit_amqp_version.hpp"
+)
+
+set_source_files_properties(
+  "${${PLUGIN}_HEADERS_GENERATORS}"
+  PROPERTIES
+  HEADER_FILE_ONLY ON
+)
+set_source_files_properties(
+  "${${PLUGIN}_HEADERS_GENERATED}"
+  PROPERTIES
+  GENERATED ON
+)
+
+configure_file(
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/irods/private/audit_amqp_version.hpp.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/include/irods/private/audit_amqp_version.hpp"
+  @ONLY
+)
+
+add_library(
+  ${PLUGIN}
+  MODULE
+  "${${PLUGIN}_SOURCES}"
+  "${${PLUGIN}_HEADERS}"
+  "${${PLUGIN}_HEADERS_GENERATORS}"
+  "${${PLUGIN}_HEADERS_GENERATED}"
+)
 target_compile_options(${PLUGIN} PRIVATE -Wno-write-strings)
 target_compile_definitions(${PLUGIN} PRIVATE ${IRODS_COMPILE_DEFINITIONS} ${IRODS_COMPILE_DEFINITIONS_PRIVATE} IRODS_ENABLE_SYSLOG)
 target_include_directories(
   ${PLUGIN}
   PRIVATE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
   ${IRODS_INCLUDE_DIRS}
   ${IRODS_EXTERNALS_FULLPATH_BOOST}/include
   ${IRODS_EXTERNALS_FULLPATH_QPID_PROTON}/include

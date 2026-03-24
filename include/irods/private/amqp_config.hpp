@@ -81,7 +81,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		irods::error initialize(const nlohmann::json& _plugin_specific_configuration,
 		                        const std::string& _re_instance_name);
 
-		void configure_connection(proton::connection_options& _conn_opts);
+		void configure_connection(proton::connection_options& _conn_opts, const std::string& _re_instance_name);
 		void configure_sender(proton::sender_options& _sender_opts);
 
 		void deinitialize()

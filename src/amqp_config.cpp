@@ -1,10 +1,13 @@
 #include "irods/private/audit_amqp.hpp"
 #include "irods/private/amqp_config.hpp"
+#include "irods/private/audit_amqp_version.hpp"
 
 #include <irods/irods_error.hpp>
+#include <irods/irods_version.h>
 #include <irods/rodsErrorTable.h>
 
 #include <boost/algorithm/string/predicate.hpp>
+#include <boost/preprocessor/stringize.hpp>
 #include <boost/url/url_view.hpp>
 
 #include <fmt/format.h>
@@ -20,11 +23,14 @@
 #include <proton/source.hpp>
 #include <proton/source_options.hpp>
 #include <proton/ssl.hpp>
+#include <proton/symbol.hpp>
 #include <proton/target.hpp>
 #include <proton/target_options.hpp>
+#include <proton/value.hpp>
 
 #include <cstdint>
 #include <limits>
+#include <map>
 #include <sstream>
 #include <string>
 
@@ -994,7 +1000,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		return SUCCESS();
 	}
 
-	void amqp_config::configure_connection(proton::connection_options& _conn_opts)
+	void amqp_config::configure_connection(proton::connection_options& _conn_opts, const std::string& _re_instance_name)
 	{
 		if (!failover_endpoints_.empty()) {
 			_conn_opts.failover_urls(failover_endpoints_);
@@ -1107,6 +1113,20 @@ namespace irods::plugin::rule_engine::audit_amqp
 			reconn_opts.max_attempts(*reconnect_max_attempts_);
 		}
 		_conn_opts.reconnect(reconn_opts);
+
+		const std::map<proton::symbol, proton::value> conn_props{
+			{"product", "iRODS"},
+			{"version", IRODS_VERSION},
+			{"version_integer", static_cast<std::uint64_t>(IRODS_VERSION_INTEGER)},
+			{"rule_engine_plugin", rule_engine_name},
+			{"rule_engine_plugin_version", IRODS_AUDIT_AMQP_VERSION},
+			{"rule_engine_plugin_version_integer", IRODS_AUDIT_AMQP_VERSION_INTEGER},
+			{"rule_engine_plugin_instance_name", _re_instance_name},
+			{"platform", "C++/Qpid-Proton"},
+			{"platform_version", IRODS_QPID_PROTON_VERSION},
+			{"platform_version_integer", static_cast<std::uint64_t>(IRODS_QPID_PROTON_VERSION_INTEGER)},
+		};
+		_conn_opts.properties(conn_props);
 	}
 
 	void amqp_config::configure_sender(proton::sender_options& _sender_opts)
