@@ -22,9 +22,20 @@
 
 namespace irods::plugin::rule_engine::audit_amqp
 {
+	/// \brief Class for AMQP configuration
+	///
+	/// See README.md for an explanation of each configuration option.
+	///
+	/// \note
+	/// A value of ``std::nullopt`` indicates an unset option. In these cases, the behavior is defined by Qpid Proton.
 	class amqp_config
 	{
 	  public:
+		/// \brief Class containing configuration defaults and fallbacks.
+		///
+		/// \note
+		/// For required configuration options, the value here is the fallback value. Fallback values will only be used
+		/// if something really terrible happens.
 		class defaults
 		{
 		  public:
