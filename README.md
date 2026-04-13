@@ -212,6 +212,7 @@ The JSON block below represents all supported configuration options in `plugin_s
             // - `NONDURABLE`: No persistence.
             // - `CONFIGURATION`: Only configuration is persisted.
             // - `UNSETTLED_STATE`: Configuration and delivery state are persisted.
+            // - `DELIVERIES`: Same as `UNSETTLED_STATE`.
             // See https://qpid.apache.org/releases/qpid-proton-0.36.0/proton/cpp/api/classproton_1_1terminus.html#a61db0571ab7d1a29ad77549ff99d6b3d
             // Optional. Default is unset (equivalent to `NONDURABLE`).
             "durability_mode": "NONDURABLE",
@@ -244,6 +245,7 @@ The JSON block below represents all supported configuration options in `plugin_s
             // - `NONDURABLE`: No persistence.
             // - `CONFIGURATION`: Only configuration is persisted.
             // - `UNSETTLED_STATE`: Configuration and delivery state are persisted.
+            // - `DELIVERIES`: Same as `UNSETTLED_STATE`.
             // See https://qpid.apache.org/releases/qpid-proton-0.36.0/proton/cpp/api/classproton_1_1terminus.html#a61db0571ab7d1a29ad77549ff99d6b3d
             // Optional. Default is `UNSETTLED_STATE`.
             "durability_mode": "UNSETTLED_STATE",

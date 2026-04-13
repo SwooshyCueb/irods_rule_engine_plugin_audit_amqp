@@ -781,7 +781,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 					else if (source_durability_mode == "CONFIGURATION") {
 						sender_source_durability_mode_ = proton::source::durability_mode::CONFIGURATION;
 					}
-					else if (source_durability_mode == "UNSETTLED_STATE") {
+					else if ((source_durability_mode == "UNSETTLED_STATE") or (source_durability_mode == "DELIVERIES"))
+					{
 						sender_source_durability_mode_ = proton::source::durability_mode::UNSETTLED_STATE;
 					}
 					else {
@@ -790,7 +791,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 							{"rule_engine_plugin", rule_engine_name},
 							{"instance_name", _re_instance_name},
 							{"log_message", "durability_mode must be one of "
-							                "[NONDURABLE, CONFIGURATION, UNSETTLED_STATE]."},
+							                "[NONDURABLE, CONFIGURATION, UNSETTLED_STATE, DELIVERIES]."},
 							{"amqp_sender::source::durability_mode", source_durability_mode}
 						});
 						// clang-format on
@@ -907,7 +908,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 					else if (target_durability_mode == "CONFIGURATION") {
 						sender_target_durability_mode_ = proton::target::durability_mode::CONFIGURATION;
 					}
-					else if (target_durability_mode == "UNSETTLED_STATE") {
+					else if ((target_durability_mode == "UNSETTLED_STATE") or (target_durability_mode == "DELIVERIES"))
+					{
 						sender_target_durability_mode_ = proton::target::durability_mode::UNSETTLED_STATE;
 					}
 					else {
@@ -916,7 +918,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 							{"rule_engine_plugin", rule_engine_name},
 							{"instance_name", _re_instance_name},
 							{"log_message", "durability_mode must be one of "
-							                "[NONDURABLE, CONFIGURATION, UNSETTLED_STATE]."},
+							                "[NONDURABLE, CONFIGURATION, UNSETTLED_STATE, DELIVERIES]."},
 							{"amqp_sender::target::durability_mode", target_durability_mode}
 						});
 						// clang-format on
