@@ -113,10 +113,11 @@ namespace irods::plugin::rule_engine::audit_amqp
 						continue;
 					}
 
-					if (rule_engine.count(irods::KW_CFG_PLUGIN_SPECIFIC_CONFIGURATION) <= 0) {
+					const auto plugin_spec_cfg_ = rule_engine.find(irods::KW_CFG_PLUGIN_SPECIFIC_CONFIGURATION);
+					if (plugin_spec_cfg_ == rule_engine.end()) {
 						set_default_configs();
 						// clang-format off
-						log_re::debug({
+						log_re::warn({
 							{"rule_engine_plugin", rule_engine_name},
 							{"instance_name", _instance_name},
 							{"log_message", "Using default plugin configuration"},
@@ -126,7 +127,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 						return SUCCESS();
 					}
 
-					const auto& plugin_spec_cfg = rule_engine.at(irods::KW_CFG_PLUGIN_SPECIFIC_CONFIGURATION);
+					const auto& plugin_spec_cfg = *plugin_spec_cfg_;
 
 					audit_pep_regex_to_match = plugin_spec_cfg.at("pep_regex_to_match").get<std::string>();
 

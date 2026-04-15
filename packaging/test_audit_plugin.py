@@ -73,14 +73,8 @@ class TestAuditPlugin(unittest.TestCase):
                     p_frag = "" if p_frag is None else p_frag
                 self.amqp_path = f"{path_pre}{path}{p_parms_pre}{p_params}{p_frag_pre}{p_frag}"
 
-                log_directory = rule_engine_cfg["log_path_prefix"]
-
         # Reload configuration after edits are made so that they take effect in the server.
         IrodsController().reload_configuration()
-
-        # create log directory
-        if not os.path.exists(log_directory):
-            os.makedirs(log_directory)
 
     def tearDown(self):
         filepath = os.path.abspath(self.largetestfile)
