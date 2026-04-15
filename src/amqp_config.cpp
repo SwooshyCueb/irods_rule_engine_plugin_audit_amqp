@@ -50,7 +50,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				std::stringstream endpoint_ss;
 
 				const auto scheme_cfg = endpoint_cfg.find("scheme");
-				if (scheme_cfg != endpoint_cfg.end()) {
+				if ((scheme_cfg != endpoint_cfg.end()) && !scheme_cfg->is_null()) {
 					endpoint_ss << scheme_cfg->get_ref<const std::string&>() << "://";
 				}
 
@@ -58,7 +58,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				endpoint_ss << host;
 
 				const auto port_cfg = endpoint_cfg.find("port");
-				if (port_cfg != endpoint_cfg.end()) {
+				if ((port_cfg != endpoint_cfg.end()) && !port_cfg->is_null()) {
 					const auto& port = port_cfg->get_ref<const nlohmann::json::number_unsigned_t&>();
 					if (port > std::numeric_limits<std::uint16_t>::max()) {
 						// clang-format off
@@ -80,7 +80,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 				bool found_endpoint_params = false;
 				const auto endpoint_params_cfg = endpoint_cfg.find("parameters");
-				if (endpoint_params_cfg != endpoint_cfg.end()) {
+				if ((endpoint_params_cfg != endpoint_cfg.end()) && !endpoint_params_cfg->is_null()) {
 					const auto& endpoint_params = *endpoint_params_cfg;
 					for (const auto& [ep_key, ep_val] : endpoint_params.items()) {
 						if (found_endpoint_params) {
@@ -101,12 +101,9 @@ namespace irods::plugin::rule_engine::audit_amqp
 				}
 
 				const auto endpoint_frag_cfg = endpoint_cfg.find("fragment");
-				if (endpoint_frag_cfg != endpoint_cfg.end()) {
+				if ((endpoint_frag_cfg != endpoint_cfg.end()) && !endpoint_frag_cfg->is_null()) {
 					const auto& endpoint_frag = *endpoint_frag_cfg;
-					endpoint_ss << '#';
-					if (!endpoint_frag.is_null()) {
-						endpoint_ss << endpoint_frag.get_ref<const std::string&>();
-					}
+					endpoint_ss << '#' << endpoint_frag.get_ref<const std::string&>();
 				}
 
 				if (found_endpoint) {
@@ -122,15 +119,19 @@ namespace irods::plugin::rule_engine::audit_amqp
 		bool found_user = false;
 		const auto user_cfg = _plugin_specific_configuration.find("amqp_user");
 		if (user_cfg != _plugin_specific_configuration.end()) {
-			user_ = user_cfg->get_ref<const std::string&>();
 			found_user = true;
+			if (!user_cfg->is_null()) {
+				user_ = user_cfg->get_ref<const std::string&>();
+			}
 		}
 
 		bool found_password = false;
 		const auto password_cfg = _plugin_specific_configuration.find("amqp_password");
 		if (password_cfg != _plugin_specific_configuration.end()) {
-			password_ = password_cfg->get_ref<const std::string&>();
 			found_password = true;
+			if (!password_cfg->is_null()) {
+				password_ = password_cfg->get_ref<const std::string&>();
+			}
 		}
 
 		// check amqp_location
@@ -297,7 +298,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 		bool found_path_params = false;
 		const auto path_params_cfg = _plugin_specific_configuration.find("amqp_path_parameters");
-		if (path_params_cfg != _plugin_specific_configuration.end()) {
+		if ((path_params_cfg != _plugin_specific_configuration.end()) && !path_params_cfg->is_null()) {
 			const auto& path_params = *path_params_cfg;
 			for (const auto& [pp_key, pp_val] : path_params.items()) {
 				path_ss << (found_path_params ? '&' : '?') << pp_key;
@@ -313,18 +314,15 @@ namespace irods::plugin::rule_engine::audit_amqp
 		}
 
 		const auto path_frag_cfg = _plugin_specific_configuration.find("amqp_path_fragment");
-		if (path_frag_cfg != _plugin_specific_configuration.end()) {
+		if ((path_frag_cfg != _plugin_specific_configuration.end()) && !path_frag_cfg->is_null()) {
 			const auto& path_frag = *path_frag_cfg;
-			path_ss << '#';
-			if (!path_frag.is_null()) {
-				path_ss << path_frag.get_ref<const std::string&>();
-			}
+			path_ss << '#' << path_frag.get_ref<const std::string&>();
 		}
 
 		path_ = path_ss.str();
 
 		const auto amqp_ssl_cfg = _plugin_specific_configuration.find("amqp_ssl");
-		if (amqp_ssl_cfg == _plugin_specific_configuration.end()) {
+		if ((amqp_ssl_cfg == _plugin_specific_configuration.end()) || amqp_ssl_cfg->is_null()) {
 			ssl_verify_mode_ = defaults::ssl_verify_mode;
 			ssl_trust_db_ = defaults::ssl_trust_db;
 			ssl_certdb_main_ = defaults::ssl_certdb_main;
@@ -338,7 +336,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			if (ssl_verify_mode_cfg == ssl_cfg.end()) {
 				ssl_verify_mode_ = defaults::ssl_verify_mode;
 			}
-			else {
+			else if (!ssl_verify_mode_cfg->is_null()) {
 				const std::string& ssl_verify_mode = ssl_verify_mode_cfg->get_ref<const std::string&>();
 
 				if (ssl_verify_mode == "VERIFY_PEER") {
@@ -368,7 +366,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			if (ssl_trust_db_cfg == ssl_cfg.end()) {
 				ssl_trust_db_ = defaults::ssl_trust_db;
 			}
-			else {
+			else if (!ssl_trust_db_cfg->is_null()) {
 				ssl_trust_db_ = ssl_trust_db_cfg->get_ref<const std::string&>();
 				found_trust_db = true;
 			}
@@ -388,7 +386,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				});
 				// clang-format on
 			}
-			else {
+			else if (!ssl_certdb_main_cfg->is_null()) {
 				ssl_certdb_main_ = ssl_certdb_main_cfg->get_ref<const std::string&>();
 				found_certdb_main = true;
 			}
@@ -408,7 +406,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				});
 				// clang-format on
 			}
-			else {
+			else if (!ssl_certdb_extra_cfg->is_null()) {
 				ssl_certdb_extra_ = ssl_certdb_extra_cfg->get_ref<const std::string&>();
 				found_certdb_extra = true;
 			}
@@ -427,13 +425,13 @@ namespace irods::plugin::rule_engine::audit_amqp
 				});
 				// clang-format on
 			}
-			else {
+			else if (!ssl_cert_password_cfg->is_null()) {
 				ssl_cert_password_ = ssl_cert_password_cfg->get_ref<const std::string&>();
 			}
 		}
 
 		const auto amqp_sasl_cfg = _plugin_specific_configuration.find("amqp_sasl");
-		if (amqp_sasl_cfg == _plugin_specific_configuration.end()) {
+		if ((amqp_sasl_cfg == _plugin_specific_configuration.end()) || amqp_sasl_cfg->is_null()) {
 			sasl_enabled_ = defaults::sasl_enabled;
 			sasl_mechanisms_ = defaults::sasl_mechanisms;
 			sasl_allow_insecure_ = defaults::sasl_allow_insecure;
@@ -445,7 +443,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			if (sasl_enabled_cfg == sasl_cfg.end()) {
 				sasl_enabled_ = defaults::sasl_enabled;
 			}
-			else {
+			else if (!sasl_enabled_cfg->is_null()) {
 				sasl_enabled_ = sasl_enabled_cfg->get<bool>();
 			}
 
@@ -466,7 +464,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				}
 				sasl_mechanisms_ = mechanisms_ss.str();
 			}
-			else {
+			else if (!mechanisms_cfg->is_null()) {
 				sasl_mechanisms_ = mechanisms_cfg->get_ref<const std::string&>();
 			}
 
@@ -474,7 +472,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			if (sasl_allow_insecure_cfg == sasl_cfg.end()) {
 				sasl_allow_insecure_ = defaults::sasl_allow_insecure;
 			}
-			else {
+			else if (!sasl_allow_insecure_cfg->is_null()) {
 				sasl_allow_insecure_ = sasl_allow_insecure_cfg->get<bool>();
 			}
 		}
@@ -483,7 +481,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		if (max_frame_size_cfg == _plugin_specific_configuration.end()) {
 			connection_max_frame_size_ = defaults::connection_max_frame_size;
 		}
-		else {
+		else if (!max_frame_size_cfg->is_null()) {
 			const auto& max_frame_size = max_frame_size_cfg->get_ref<const nlohmann::json::number_unsigned_t&>();
 			if (max_frame_size > std::numeric_limits<std::uint32_t>::max()) {
 				// clang-format off
@@ -507,7 +505,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		if (max_sessions_cfg == _plugin_specific_configuration.end()) {
 			connection_max_sessions_ = defaults::connection_max_sessions;
 		}
-		else {
+		else if (!max_sessions_cfg->is_null()) {
 			const auto& max_sessions = max_sessions_cfg->get_ref<const nlohmann::json::number_unsigned_t&>();
 			if (max_sessions > std::numeric_limits<std::uint16_t>::max()) {
 				// clang-format off
@@ -531,7 +529,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		if (idle_timeout_cfg == _plugin_specific_configuration.end()) {
 			connection_idle_timeout_ = defaults::connection_idle_timeout;
 		}
-		else {
+		else if (!idle_timeout_cfg->is_null()) {
 			const auto& idle_timeout = idle_timeout_cfg->get_ref<const nlohmann::json::number_unsigned_t&>();
 			if (idle_timeout > std::numeric_limits<proton::duration::numeric_type>::max()) {
 				// clang-format off
@@ -555,7 +553,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		if (virtual_host_cfg == _plugin_specific_configuration.end()) {
 			connection_virtual_host_ = defaults::connection_virtual_host;
 		}
-		else {
+		else if (!virtual_host_cfg->is_null()) {
 			connection_virtual_host_ = virtual_host_cfg->get_ref<const std::string&>();
 		}
 
@@ -563,7 +561,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		if (reconnect_delay_cfg == _plugin_specific_configuration.end()) {
 			reconnect_delay_ = defaults::reconnect_delay;
 		}
-		else {
+		else if (!reconnect_delay_cfg->is_null()) {
 			const auto& reconnect_delay = reconnect_delay_cfg->get_ref<const nlohmann::json::number_unsigned_t&>();
 			if (reconnect_delay > std::numeric_limits<proton::duration::numeric_type>::max()) {
 				// clang-format off
@@ -588,7 +586,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		if (reconnect_delay_multiplier_cfg == _plugin_specific_configuration.end()) {
 			reconnect_delay_multiplier_ = defaults::reconnect_delay_multiplier;
 		}
-		else {
+		else if (!reconnect_delay_multiplier_cfg->is_null()) {
 			reconnect_delay_multiplier_ =
 				static_cast<float>(reconnect_delay_multiplier_cfg->get_ref<const nlohmann::json::number_float_t&>());
 		}
@@ -597,7 +595,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		if (reconnect_max_delay_cfg == _plugin_specific_configuration.end()) {
 			reconnect_max_delay_ = defaults::reconnect_max_delay;
 		}
-		else {
+		else if (!reconnect_max_delay_cfg->is_null()) {
 			const auto& reconnect_max_delay =
 				reconnect_max_delay_cfg->get_ref<const nlohmann::json::number_unsigned_t&>();
 			if (reconnect_max_delay > std::numeric_limits<proton::duration::numeric_type>::max()) {
@@ -622,7 +620,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		if (reconnect_max_attempts_cfg == _plugin_specific_configuration.end()) {
 			reconnect_max_attempts_ = defaults::reconnect_max_attempts;
 		}
-		else {
+		else if (!reconnect_max_attempts_cfg->is_null()) {
 			const auto& reconnect_max_attempts =
 				reconnect_max_attempts_cfg->get_ref<const nlohmann::json::number_unsigned_t&>();
 			if (reconnect_max_attempts > std::numeric_limits<int>::max()) {
@@ -644,7 +642,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		}
 
 		const auto amqp_sender_cfg = _plugin_specific_configuration.find("amqp_sender");
-		if (amqp_sender_cfg == _plugin_specific_configuration.end()) {
+		if ((amqp_sender_cfg == _plugin_specific_configuration.end()) || amqp_sender_cfg->is_null()) {
 			sender_delivery_mode_ = defaults::sender_delivery_mode;
 			sender_auto_settle_ = defaults::sender_auto_settle;
 
@@ -670,7 +668,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			if (sender_delivery_mode_cfg == sender_cfg.end()) {
 				sender_delivery_mode_ = defaults::sender_delivery_mode;
 			}
-			else {
+			else if (!sender_delivery_mode_cfg->is_null()) {
 				const std::string& sender_delivery_mode = sender_delivery_mode_cfg->get_ref<const std::string&>();
 
 				if (sender_delivery_mode == "NONE") {
@@ -699,12 +697,12 @@ namespace irods::plugin::rule_engine::audit_amqp
 			if (sender_auto_settle_cfg == sender_cfg.end()) {
 				sender_auto_settle_ = defaults::sender_auto_settle;
 			}
-			else {
+			else if (!sender_auto_settle_cfg->is_null()) {
 				sender_auto_settle_ = sender_auto_settle_cfg->get<bool>();
 			}
 
 			const auto amqp_sender_source_cfg = sender_cfg.find("source");
-			if (amqp_sender_source_cfg == sender_cfg.end()) {
+			if ((amqp_sender_source_cfg == sender_cfg.end()) || amqp_sender_source_cfg->is_null()) {
 				sender_source_address_ = defaults::sender_source_address;
 				sender_source_dynamic_ = defaults::sender_source_dynamic;
 				sender_source_anonymous_ = defaults::sender_source_anonymous;
@@ -720,7 +718,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				if (source_address_cfg == sender_source_cfg.end()) {
 					sender_source_address_ = defaults::sender_source_address;
 				}
-				else {
+				else if (!source_address_cfg->is_null()) {
 					sender_source_address_ = source_address_cfg->get_ref<const std::string&>();
 				}
 
@@ -728,7 +726,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				if (source_dynamic_cfg == sender_source_cfg.end()) {
 					sender_source_dynamic_ = defaults::sender_source_dynamic;
 				}
-				else {
+				else if (!source_dynamic_cfg->is_null()) {
 					sender_source_dynamic_ = source_dynamic_cfg->get<bool>();
 				}
 
@@ -736,7 +734,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				if (source_anonymous_cfg == sender_source_cfg.end()) {
 					sender_source_anonymous_ = defaults::sender_source_dynamic;
 				}
-				else {
+				else if (!source_anonymous_cfg->is_null()) {
 					sender_source_anonymous_ = source_anonymous_cfg->get<bool>();
 				}
 
@@ -744,7 +742,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				if (source_distribution_mode_cfg == sender_source_cfg.end()) {
 					sender_source_distribution_mode_ = defaults::sender_source_distribution_mode;
 				}
-				else {
+				else if (!source_distribution_mode_cfg->is_null()) {
 					const std::string& source_distribution_mode =
 						source_distribution_mode_cfg->get_ref<const std::string&>();
 
@@ -774,7 +772,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				if (source_durability_mode_cfg == sender_source_cfg.end()) {
 					sender_source_durability_mode_ = defaults::sender_source_durability_mode;
 				}
-				else {
+				else if (!source_durability_mode_cfg->is_null()) {
 					const std::string& source_durability_mode =
 						source_durability_mode_cfg->get_ref<const std::string&>();
 
@@ -806,7 +804,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				if (source_timeout_cfg == sender_source_cfg.end()) {
 					sender_source_timeout_ = defaults::sender_source_timeout;
 				}
-				else {
+				else if (!source_timeout_cfg->is_null()) {
 					const auto& source_timeout =
 						source_timeout_cfg->get_ref<const nlohmann::json::number_unsigned_t&>();
 					if (source_timeout > std::numeric_limits<proton::duration::numeric_type>::max()) {
@@ -831,7 +829,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				if (source_expiry_policy_cfg == sender_source_cfg.end()) {
 					sender_source_expiry_policy_ = defaults::sender_source_expiry_policy;
 				}
-				else {
+				else if (!source_expiry_policy_cfg->is_null()) {
 					const std::string& source_expiry_policy = source_expiry_policy_cfg->get_ref<const std::string&>();
 
 					if (source_expiry_policy == "LINK_CLOSE") {
@@ -862,7 +860,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			}
 
 			const auto amqp_sender_target_cfg = sender_cfg.find("target");
-			if (amqp_sender_target_cfg == sender_cfg.end()) {
+			if ((amqp_sender_target_cfg == sender_cfg.end()) || amqp_sender_target_cfg->is_null()) {
 				sender_target_address_ = defaults::sender_target_address;
 				sender_target_dynamic_ = defaults::sender_target_dynamic;
 				sender_target_anonymous_ = defaults::sender_target_anonymous;
@@ -877,7 +875,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				if (target_address_cfg == sender_target_cfg.end()) {
 					sender_target_address_ = defaults::sender_target_address;
 				}
-				else {
+				else if (!target_address_cfg->is_null()) {
 					sender_target_address_ = target_address_cfg->get_ref<const std::string&>();
 				}
 
@@ -885,7 +883,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				if (target_dynamic_cfg == sender_target_cfg.end()) {
 					sender_target_dynamic_ = defaults::sender_target_dynamic;
 				}
-				else {
+				else if (!target_dynamic_cfg->is_null()) {
 					sender_target_dynamic_ = target_dynamic_cfg->get<bool>();
 				}
 
@@ -893,7 +891,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				if (target_anonymous_cfg == sender_target_cfg.end()) {
 					sender_target_anonymous_ = defaults::sender_target_dynamic;
 				}
-				else {
+				else if (!target_anonymous_cfg->is_null()) {
 					sender_target_anonymous_ = target_anonymous_cfg->get<bool>();
 				}
 
@@ -901,7 +899,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				if (target_durability_mode_cfg == sender_target_cfg.end()) {
 					sender_target_durability_mode_ = defaults::sender_target_durability_mode;
 				}
-				else {
+				else if (!target_durability_mode_cfg->is_null()) {
 					const std::string& target_durability_mode =
 						target_durability_mode_cfg->get_ref<const std::string&>();
 
@@ -933,7 +931,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				if (target_timeout_cfg == sender_target_cfg.end()) {
 					sender_target_timeout_ = defaults::sender_target_timeout;
 				}
-				else {
+				else if (!target_timeout_cfg->is_null()) {
 					const auto& target_timeout =
 						target_timeout_cfg->get_ref<const nlohmann::json::number_unsigned_t&>();
 					if (target_timeout > std::numeric_limits<proton::duration::numeric_type>::max()) {
@@ -958,7 +956,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				if (target_expiry_policy_cfg == sender_target_cfg.end()) {
 					sender_target_expiry_policy_ = defaults::sender_target_expiry_policy;
 				}
-				else {
+				else if (!target_expiry_policy_cfg->is_null()) {
 					const std::string& target_expiry_policy = target_expiry_policy_cfg->get_ref<const std::string&>();
 
 					if (target_expiry_policy == "LINK_CLOSE") {
@@ -997,7 +995,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			const auto& amqp_durable_messages_str = amqp_durable_messages_cfg->get_ref<const std::string&>();
 			durable_messages_ = boost::iequals(amqp_durable_messages_str, "true");
 		}
-		else {
+		else if (!amqp_durable_messages_cfg->is_null()) {
 			durable_messages_ = amqp_durable_messages_cfg->get<bool>();
 		}
 

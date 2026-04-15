@@ -63,13 +63,13 @@ The JSON block below represents all supported configuration options in `plugin_s
             // Port on host to connect to. When unset, will derive based on `scheme`.
             // Optional. Default is unset.
             "port": 5672,
-            // AMQP URL parameters. Values can be strings or null.
+            // AMQP URL parameters. Values can be strings or `null`.
             // Optional. Default is unset.
             "parameters": {
                 "param1": "value1",
                 "param2": null
             },
-            // AMQP URL fragment. Can be a string or null.
+            // AMQP URL fragment.
             // Optional. Default is unset.
             "fragment": "frag"
         }
@@ -89,21 +89,20 @@ The JSON block below represents all supported configuration options in `plugin_s
     // See https://www.rabbitmq.com/docs/amqp#target-address-v2
     // REQUIRED. Fallback is `queues/irods_audit_messages`.
     "amqp_path": "queues/audit_messages",
-    // AMQP target address parameters. Values can be strings or null. Must be urlencoded. Strings
+    // AMQP target address parameters. Values can be strings or `null`. Must be urlencoded. Strings
     // are used as-is, so some urlencoding may be necessary.
     // Optional. Default is unset.
     "amqp_path_parameters": {
         "param1": "value1",
         "param2": null
     },
-    // AMQP target address fragment. Can be a string or null. String used as-is, so some
-    // urlencoding may be necessary.
+    // AMQP target address fragment. String used as-is, so some urlencoding may be necessary.
     // Optional. Default is unset.
-    "amqp_path_fragment": null,
+    "amqp_path_fragment": "",
     // The above amqp_path* configuration results in the URI `/queues/audit_messages?param1=value1&param2#`.
 
     // SSL options for AMQP connection.
-    // Optional. Default is unset.
+    // Optional. Default is unset (equivalent to leaving all sub-options as defaults).
     "amqp_ssl": {
         // Peer validation level. Must be one of the following:
         // - `VERIFY_PEER`: require peer to provide valid identifying certificate.
@@ -128,7 +127,7 @@ The JSON block below represents all supported configuration options in `plugin_s
     },
 
     // SASL options for AMQP authentication.
-    // Optional. Default is unset.
+    // Optional. Default is unset (equivalent to leaving all sub-options as defaults).
     "amqp_sasl": {
         // Whether or not SASL is enabled for authentication with the AMQP endpoints.
         // Optional. Default is unset (equivalent to `true`).
@@ -173,7 +172,7 @@ The JSON block below represents all supported configuration options in `plugin_s
     "amqp_reconnect_max_attempts": 2048,
 
     // Options for AMQP sender.
-    // Optional. Default is unset.
+    // Optional. Default is unset (equivalent to leaving all sub-options as defaults).
     "amqp_sender": {
         // Message delivery policy to establish when opening a link. Must be one of the following:
         // - `NONE`: No set policy. The application must settle messages itself according to its
@@ -190,7 +189,7 @@ The JSON block below represents all supported configuration options in `plugin_s
         "auto_settle": true,
 
         // Options for source node.
-        // Optional. Default is unset.
+        // Optional. Default is unset (equivalent to leaving all sub-options as defaults).
         "source": {
             // Address for the node. Ignored if `dynamic` is `true`.
             // Optional. Default is unset.
@@ -230,7 +229,7 @@ The JSON block below represents all supported configuration options in `plugin_s
         },
 
         // Options for target node.
-        // Optional. Default is unset.
+        // Optional. Default is unset (equivalent to leaving all sub-options as defaults).
         "target": {
             // Address for the node. Ignored if `dynamic` is `true`.
             // Optional. Default is unset.
@@ -247,7 +246,8 @@ The JSON block below represents all supported configuration options in `plugin_s
             // - `UNSETTLED_STATE`: Configuration and delivery state are persisted.
             // - `DELIVERIES`: Same as `UNSETTLED_STATE`.
             // See https://qpid.apache.org/releases/qpid-proton-0.36.0/proton/cpp/api/classproton_1_1terminus.html#a61db0571ab7d1a29ad77549ff99d6b3d
-            // Optional. Default is `UNSETTLED_STATE`.
+            // Optional. Default is `UNSETTLED_STATE`. Can be set to `null` to unset explicitly (equivalent to
+            // `NONDURABLE`).
             "durability_mode": "UNSETTLED_STATE",
             // How long in milliseconds an orphaned target can persist. No timeout if unset.
             // Optional. Default is unset.
@@ -264,7 +264,8 @@ The JSON block below represents all supported configuration options in `plugin_s
     },
 
     // Whether to set the durable flag on outgoing AMQP messages.
-    // Optional. Default is `true`.
+    // Optional. Default is `true`. Can be set to `null` to unset explicitly (equivalent to
+    // `false`).
     "amqp_durable_messages": true
 }
 ```
