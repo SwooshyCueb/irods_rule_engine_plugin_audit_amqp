@@ -31,6 +31,7 @@
 
 #include <sys/types.h>
 
+#include <chrono>
 #include <cstdint>
 #include <mutex>
 #include <optional>
@@ -147,7 +148,20 @@ namespace irods::plugin::rule_engine::audit_amqp
 		container.sender_options(sender_opts);
 
 		proton_thread_.emplace([&container]() { container.run(); });
-		connection_sem_.acquire();
+		if (amqp_config_.connection_open_timeout() > std::chrono::milliseconds::zero()) {
+			if (!connection_sem_.try_acquire_for(amqp_config_.connection_open_timeout())) {
+				// clang-format off
+				log_re::error({
+					{"rule_engine_plugin", rule_engine_name},
+					{"instance_name", re_instance_name_},
+					{"log_message", "Reached timeout while establishing AMQP connection."}
+				});
+				// clang-format on
+			}
+		}
+		else {
+			connection_sem_.acquire();
+		}
 
 		return SUCCESS();
 	}
@@ -166,18 +180,30 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// clang-format on
 #endif
 
-		std::binary_semaphore disconn_sem(0);
-
 		if (sender_.has_value()) {
+			std::binary_semaphore sender_disconn_sem(0);
 			proton::sender& sender = *sender_;
-			bool wq_res = sender.work_queue().add([&sender, &disconn_sem]() {
+			bool wq_res = sender.work_queue().add([&sender, &sender_disconn_sem]() {
 				if (!sender.closed()) {
 					sender.close();
 				}
-				disconn_sem.release();
+				sender_disconn_sem.release();
 			});
 			if (wq_res) {
-				disconn_sem.acquire();
+				if (amqp_config_.sender_close_timeout() > std::chrono::milliseconds::zero()) {
+					if (!sender_disconn_sem.try_acquire_for(amqp_config_.sender_close_timeout())) {
+						// clang-format off
+						log_re::error({
+							{"rule_engine_plugin", rule_engine_name},
+							{"instance_name", re_instance_name_},
+							{"log_message", "Reached timeout while closing AMQP sender."}
+						});
+						// clang-format on
+					}
+				}
+				else {
+					sender_disconn_sem.acquire();
+				}
 #ifdef IRODS_AUDIT_EXTRA_TRACE
 				// clang-format off
 				log_re::trace({
@@ -198,15 +224,29 @@ namespace irods::plugin::rule_engine::audit_amqp
 				// clang-format on
 			}
 
+			std::binary_semaphore session_disconn_sem(0);
 			proton::session session = sender.session();
-			wq_res = sender.work_queue().add([&session, &disconn_sem]() {
+			wq_res = session.work_queue().add([&session, &session_disconn_sem]() {
 				if (!session.closed()) {
 					session.close();
 				}
-				disconn_sem.release();
+				session_disconn_sem.release();
 			});
 			if (wq_res) {
-				disconn_sem.acquire();
+				if (amqp_config_.session_close_timeout() > std::chrono::milliseconds::zero()) {
+					if (!session_disconn_sem.try_acquire_for(amqp_config_.session_close_timeout())) {
+						// clang-format off
+						log_re::error({
+							{"rule_engine_plugin", rule_engine_name},
+							{"instance_name", re_instance_name_},
+							{"log_message", "Reached timeout while closing AMQP session."}
+						});
+						// clang-format on
+					}
+				}
+				else {
+					session_disconn_sem.acquire();
+				}
 #ifdef IRODS_AUDIT_EXTRA_TRACE
 				// clang-format off
 				log_re::trace({
@@ -232,15 +272,29 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 		bool did_close_conn = false;
 		if (connection_.has_value()) {
+			std::binary_semaphore connection_disconn_sem(0);
 			proton::connection& connection = *connection_;
-			const bool wq_res = connection.work_queue().add([&connection, &disconn_sem]() {
+			const bool wq_res = connection.work_queue().add([&connection, &connection_disconn_sem]() {
 				if (!connection.closed()) {
 					connection.close();
 				}
-				disconn_sem.release();
+				connection_disconn_sem.release();
 			});
 			if (wq_res) {
-				disconn_sem.acquire();
+				if (amqp_config_.connection_close_timeout() > std::chrono::milliseconds::zero()) {
+					if (!connection_disconn_sem.try_acquire_for(amqp_config_.connection_close_timeout())) {
+						// clang-format off
+						log_re::error({
+							{"rule_engine_plugin", rule_engine_name},
+							{"instance_name", re_instance_name_},
+							{"log_message", "Reached timeout while closing AMQP connection."}
+						});
+						// clang-format on
+					}
+				}
+				else {
+					connection_disconn_sem.acquire();
+				}
 				did_close_conn = true;
 #ifdef IRODS_AUDIT_EXTRA_TRACE
 				// clang-format off
@@ -355,7 +409,20 @@ namespace irods::plugin::rule_engine::audit_amqp
 			send_semaphore.release();
 		});
 		if (is_sending) {
-			send_semaphore.acquire();
+			if (amqp_config_.message_send_timeout() > std::chrono::milliseconds::zero()) {
+				if (!send_semaphore.try_acquire_for(amqp_config_.message_send_timeout())) {
+					// clang-format off
+					log_re::error({
+						{"rule_engine_plugin", rule_engine_name},
+						{"instance_name", re_instance_name_},
+						{"log_message", "Reached timeout while sending AMQP message."}
+					});
+					// clang-format on
+				}
+			}
+			else {
+				send_semaphore.acquire();
+			}
 		}
 		else {
 			// clang-format off

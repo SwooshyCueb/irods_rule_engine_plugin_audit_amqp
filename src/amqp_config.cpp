@@ -28,6 +28,7 @@
 #include <proton/target_options.hpp>
 #include <proton/value.hpp>
 
+#include <chrono>
 #include <cstdint>
 #include <limits>
 #include <map>
@@ -557,6 +558,58 @@ namespace irods::plugin::rule_engine::audit_amqp
 			connection_virtual_host_ = virtual_host_cfg->get_ref<const std::string&>();
 		}
 
+		const auto connection_open_timeout_cfg = _plugin_specific_configuration.find("amqp_connection_open_timeout");
+		if (connection_open_timeout_cfg == _plugin_specific_configuration.end()) {
+			connection_open_timeout_ = defaults::connection_open_timeout;
+		}
+		else if (!connection_open_timeout_cfg->is_null()) {
+			const auto& connection_open_timeout =
+				connection_open_timeout_cfg->get_ref<const nlohmann::json::number_unsigned_t&>();
+			if (connection_open_timeout > std::numeric_limits<std::chrono::milliseconds::rep>::max()) {
+				// clang-format off
+				log_re::error({
+					{"rule_engine_plugin", rule_engine_name},
+					{"instance_name", _re_instance_name},
+					{"log_message",
+					 fmt::format(FMT_COMPILE("Connection open timeout must not exceed {}."),
+					             std::numeric_limits<std::chrono::milliseconds::rep>::max())},
+					{"amqp_connection_open_timeout", std::to_string(connection_open_timeout)}
+				});
+				// clang-format on
+				return ERROR(CONFIGURATION_ERROR,
+				             fmt::format(FMT_COMPILE("Connection open timeout greater than {}."),
+				                         std::numeric_limits<std::chrono::milliseconds::rep>::max()));
+			}
+			connection_open_timeout_ =
+				std::chrono::milliseconds(static_cast<std::chrono::milliseconds::rep>(connection_open_timeout));
+		}
+
+		const auto connection_close_timeout_cfg = _plugin_specific_configuration.find("amqp_connection_close_timeout");
+		if (connection_close_timeout_cfg == _plugin_specific_configuration.end()) {
+			connection_close_timeout_ = defaults::connection_close_timeout;
+		}
+		else if (!connection_close_timeout_cfg->is_null()) {
+			const auto& connection_close_timeout =
+				connection_close_timeout_cfg->get_ref<const nlohmann::json::number_unsigned_t&>();
+			if (connection_close_timeout > std::numeric_limits<std::chrono::milliseconds::rep>::max()) {
+				// clang-format off
+				log_re::error({
+					{"rule_engine_plugin", rule_engine_name},
+					{"instance_name", _re_instance_name},
+					{"log_message",
+					 fmt::format(FMT_COMPILE("Connection close timeout must not exceed {}."),
+					             std::numeric_limits<std::chrono::milliseconds::rep>::max())},
+					{"amqp_connection_close_timeout", std::to_string(connection_close_timeout)}
+				});
+				// clang-format on
+				return ERROR(CONFIGURATION_ERROR,
+				             fmt::format(FMT_COMPILE("Connection close timeout greater than {}."),
+				                         std::numeric_limits<std::chrono::milliseconds::rep>::max()));
+			}
+			connection_close_timeout_ =
+				std::chrono::milliseconds(static_cast<std::chrono::milliseconds::rep>(connection_close_timeout));
+		}
+
 		const auto reconnect_delay_cfg = _plugin_specific_configuration.find("amqp_reconnect_base_delay");
 		if (reconnect_delay_cfg == _plugin_specific_configuration.end()) {
 			reconnect_delay_ = defaults::reconnect_delay;
@@ -645,6 +698,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		if ((amqp_sender_cfg == _plugin_specific_configuration.end()) || amqp_sender_cfg->is_null()) {
 			sender_delivery_mode_ = defaults::sender_delivery_mode;
 			sender_auto_settle_ = defaults::sender_auto_settle;
+			sender_close_timeout_ = defaults::sender_close_timeout;
 
 			sender_source_address_ = defaults::sender_source_address;
 			sender_source_dynamic_ = defaults::sender_source_dynamic;
@@ -699,6 +753,32 @@ namespace irods::plugin::rule_engine::audit_amqp
 			}
 			else if (!sender_auto_settle_cfg->is_null()) {
 				sender_auto_settle_ = sender_auto_settle_cfg->get<bool>();
+			}
+
+			const auto sender_close_timeout_cfg = sender_cfg.find("close_timeout");
+			if (sender_close_timeout_cfg == sender_cfg.end()) {
+				sender_close_timeout_ = defaults::sender_close_timeout;
+			}
+			else if (!sender_close_timeout_cfg->is_null()) {
+				const auto& sender_close_timeout =
+					sender_close_timeout_cfg->get_ref<const nlohmann::json::number_unsigned_t&>();
+				if (sender_close_timeout > std::numeric_limits<std::chrono::milliseconds::rep>::max()) {
+					// clang-format off
+					log_re::error({
+						{"rule_engine_plugin", rule_engine_name},
+						{"instance_name", _re_instance_name},
+						{"log_message",
+						 fmt::format(FMT_COMPILE("Sender close timeout must not exceed {}."),
+						             std::numeric_limits<std::chrono::milliseconds::rep>::max())},
+						{"amqp_sender::close_timeout", std::to_string(sender_close_timeout)}
+					});
+					// clang-format on
+					return ERROR(CONFIGURATION_ERROR,
+					             fmt::format(FMT_COMPILE("Sender close timeout greater than {}."),
+					                         std::numeric_limits<std::chrono::milliseconds::rep>::max()));
+				}
+				sender_close_timeout_ =
+					std::chrono::milliseconds(static_cast<std::chrono::milliseconds::rep>(sender_close_timeout));
 			}
 
 			const auto amqp_sender_source_cfg = sender_cfg.find("source");
@@ -997,6 +1077,58 @@ namespace irods::plugin::rule_engine::audit_amqp
 		}
 		else if (!amqp_durable_messages_cfg->is_null()) {
 			durable_messages_ = amqp_durable_messages_cfg->get<bool>();
+		}
+
+		const auto message_send_timeout_cfg = _plugin_specific_configuration.find("amqp_message_send_timeout");
+		if (message_send_timeout_cfg == _plugin_specific_configuration.end()) {
+			message_send_timeout_ = defaults::message_send_timeout;
+		}
+		else if (!message_send_timeout_cfg->is_null()) {
+			const auto& message_send_timeout =
+				message_send_timeout_cfg->get_ref<const nlohmann::json::number_unsigned_t&>();
+			if (message_send_timeout > std::numeric_limits<std::chrono::milliseconds::rep>::max()) {
+				// clang-format off
+				log_re::error({
+					{"rule_engine_plugin", rule_engine_name},
+					{"instance_name", _re_instance_name},
+					{"log_message",
+					 fmt::format(FMT_COMPILE("Message send timeout must not exceed {}."),
+					             std::numeric_limits<std::chrono::milliseconds::rep>::max())},
+					{"amqp_message_send_timeout", std::to_string(message_send_timeout)}
+				});
+				// clang-format on
+				return ERROR(CONFIGURATION_ERROR,
+				             fmt::format(FMT_COMPILE("Message send timeout greater than {}."),
+				                         std::numeric_limits<std::chrono::milliseconds::rep>::max()));
+			}
+			message_send_timeout_ =
+				std::chrono::milliseconds(static_cast<std::chrono::milliseconds::rep>(message_send_timeout));
+		}
+
+		const auto session_close_timeout_cfg = _plugin_specific_configuration.find("amqp_session_close_timeout");
+		if (session_close_timeout_cfg == _plugin_specific_configuration.end()) {
+			session_close_timeout_ = defaults::session_close_timeout;
+		}
+		else if (!session_close_timeout_cfg->is_null()) {
+			const auto& session_close_timeout =
+				session_close_timeout_cfg->get_ref<const nlohmann::json::number_unsigned_t&>();
+			if (session_close_timeout > std::numeric_limits<std::chrono::milliseconds::rep>::max()) {
+				// clang-format off
+				log_re::error({
+					{"rule_engine_plugin", rule_engine_name},
+					{"instance_name", _re_instance_name},
+					{"log_message",
+					 fmt::format(FMT_COMPILE("Session close timeout must not exceed {}."),
+					             std::numeric_limits<std::chrono::milliseconds::rep>::max())},
+					{"amqp_session_close_timeout", std::to_string(session_close_timeout)}
+				});
+				// clang-format on
+				return ERROR(CONFIGURATION_ERROR,
+				             fmt::format(FMT_COMPILE("Session close timeout greater than {}."),
+				                         std::numeric_limits<std::chrono::milliseconds::rep>::max()));
+			}
+			session_close_timeout_ =
+				std::chrono::milliseconds(static_cast<std::chrono::milliseconds::rep>(session_close_timeout));
 		}
 
 		is_initialized_ = true;

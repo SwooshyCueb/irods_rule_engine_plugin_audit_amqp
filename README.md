@@ -158,6 +158,12 @@ The JSON block below represents all supported configuration options in `plugin_s
     // See https://qpid.apache.org/releases/qpid-proton-0.36.0/proton/cpp/api/classproton_1_1connection__options.html#a0300a2a68ecca3f684e91e637a45e028
     // Optional. Default is unset.
     "amqp_connection_virtual_host": "localhost",
+    // Timeout in milliseconds for establishing AMQP connection. 0 means no timeout.
+    // Optional. Default is 30000.
+    "amqp_connection_open_timeout": 30000,
+    // Timeout in milliseconds for closing AMQP connection. 0 means no timeout.
+    // Optional. Default is 10000.
+    "amqp_connection_close_timeout": 10000,
     // Base value in milliseconds for reconnection delays.
     // Optional. Default is unset (equivalent to 10).
     "amqp_reconnect_base_delay": 100,
@@ -187,6 +193,9 @@ The JSON block below represents all supported configuration options in `plugin_s
         // Whether to automatically settle messages.
         // Optional. Default is unset (equivalent to `true`).
         "auto_settle": true,
+        // Timeout in milliseconds for closing AMQP sender. 0 means no timeout.
+        // Optional. Default is 30000.
+        "close_timeout": 30000,
 
         // Options for source node.
         // Optional. Default is unset (equivalent to leaving all sub-options as defaults).
@@ -266,7 +275,14 @@ The JSON block below represents all supported configuration options in `plugin_s
     // Whether to set the durable flag on outgoing AMQP messages.
     // Optional. Default is `true`. Can be set to `null` to unset explicitly (equivalent to
     // `false`).
-    "amqp_durable_messages": true
+    "amqp_durable_messages": true,
+    // Timeout in milliseconds for sending individual AMQP messages. 0 means no timeout.
+    // Optional. Default is 30000.
+    "amqp_message_send_timeout": 30000,
+
+    // Timeout in milliseconds for closing AMQP session. 0 means no timeout.
+    // Optional. Default is 10000.
+    "amqp_session_close_timeout": 10000
 }
 ```
 

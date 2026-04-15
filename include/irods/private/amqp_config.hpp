@@ -9,11 +9,13 @@
 
 #include <proton/connection_options.hpp>
 #include <proton/delivery_mode.hpp>
+#include <proton/duration.hpp>
 #include <proton/sender_options.hpp>
 #include <proton/ssl.hpp>
 #include <proton/source.hpp>
 #include <proton/target.hpp>
 
+#include <chrono>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -52,6 +54,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 			static constexpr const std::optional<std::uint16_t> connection_max_sessions = std::nullopt;
 			static constexpr const auto connection_idle_timeout = std::nullopt;
 			static constexpr const std::optional<std::string> connection_virtual_host = std::nullopt;
+			static constexpr const std::chrono::milliseconds connection_open_timeout{30000};
+			static constexpr const std::chrono::milliseconds connection_close_timeout{10000};
 			static constexpr const auto reconnect_delay = std::nullopt;
 			static constexpr const std::optional<float> reconnect_delay_multiplier = std::nullopt;
 			static constexpr const auto reconnect_max_delay = std::nullopt;
@@ -69,6 +73,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 			static constexpr const auto sender_delivery_mode = std::nullopt;
 			static constexpr const std::optional<bool> sender_auto_settle = std::nullopt;
+			static constexpr const std::chrono::milliseconds sender_close_timeout{30000};
 
 			static constexpr const std::optional<std::string> sender_source_address = std::nullopt;
 			static constexpr const std::optional<bool> sender_source_dynamic = std::nullopt;
@@ -87,6 +92,9 @@ namespace irods::plugin::rule_engine::audit_amqp
 			static constexpr const std::optional<enum proton::target::expiry_policy> sender_target_expiry_policy = std::nullopt;
 
 			static constexpr const bool durable_messages = true;
+			static constexpr const std::chrono::milliseconds message_send_timeout{30000};
+
+			static constexpr const std::chrono::milliseconds session_close_timeout{10000};
 		};
 
 		irods::error initialize(const nlohmann::json& _plugin_specific_configuration,
@@ -111,6 +119,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 			connection_max_sessions_ = std::nullopt;
 			connection_idle_timeout_ = std::nullopt;
 			connection_virtual_host_ = std::nullopt;
+			connection_open_timeout_ = std::chrono::milliseconds::zero();
+			connection_close_timeout_ = std::chrono::milliseconds::zero();
 			reconnect_delay_ = std::nullopt;
 			reconnect_delay_multiplier_ = std::nullopt;
 			reconnect_max_delay_ = std::nullopt;
@@ -128,6 +138,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 			sender_delivery_mode_ = std::nullopt;
 			sender_auto_settle_ = std::nullopt;
+			sender_close_timeout_ = std::chrono::milliseconds::zero();
 
 			sender_source_address_ = std::nullopt;
 			sender_source_dynamic_ = std::nullopt;
@@ -145,6 +156,9 @@ namespace irods::plugin::rule_engine::audit_amqp
 			sender_target_expiry_policy_ = std::nullopt;
 
 			durable_messages_ = std::nullopt;
+			message_send_timeout_ = std::chrono::milliseconds::zero();
+
+			session_close_timeout_ = std::chrono::milliseconds::zero();
 		}
 
 		void initialize_from_defaults()
@@ -162,6 +176,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 			connection_max_sessions_ = defaults::connection_max_sessions;
 			connection_idle_timeout_ = defaults::connection_idle_timeout;
 			connection_virtual_host_ = defaults::connection_virtual_host;
+			connection_open_timeout_ = defaults::connection_open_timeout;
+			connection_close_timeout_ = defaults::connection_close_timeout;
 			reconnect_delay_ = defaults::reconnect_delay;
 			reconnect_delay_multiplier_ = defaults::reconnect_delay_multiplier;
 			reconnect_max_delay_ = defaults::reconnect_max_delay;
@@ -179,6 +195,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 			sender_delivery_mode_ = defaults::sender_delivery_mode;
 			sender_auto_settle_ = defaults::sender_auto_settle;
+			sender_close_timeout_ = defaults::sender_close_timeout;
 
 			sender_source_address_ = defaults::sender_source_address;
 			sender_source_dynamic_ = defaults::sender_source_dynamic;
@@ -196,12 +213,16 @@ namespace irods::plugin::rule_engine::audit_amqp
 			sender_target_expiry_policy_ = defaults::sender_target_expiry_policy;
 
 			durable_messages_ = defaults::durable_messages;
+			message_send_timeout_ = defaults::message_send_timeout;
+
+			session_close_timeout_ = defaults::session_close_timeout;
 
 			is_initialized_ = true;
 		}
 
 		[[nodiscard]] constexpr bool is_initialized() const { return is_initialized_; }
 
+		// NOLINTBEGIN(readability-const-return-type)
 		[[nodiscard]] constexpr const std::string& primary_endpoint() const { return primary_endpoint_; }
 		[[nodiscard]] constexpr const std::vector<std::string>& failover_endpoints() const { return failover_endpoints_; }
 		[[nodiscard]] constexpr const std::string& path() const { return path_; }
@@ -211,6 +232,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 		[[nodiscard]] constexpr const std::optional<std::uint16_t>& connection_max_sessions() const { return connection_max_sessions_; }
 		[[nodiscard]] constexpr const std::optional<proton::duration>& connection_idle_timeout() const { return connection_idle_timeout_; }
 		[[nodiscard]] constexpr const std::optional<std::string>& connection_virtual_host() const { return connection_virtual_host_; }
+		[[nodiscard]] constexpr const std::chrono::milliseconds connection_open_timeout() const { return connection_open_timeout_; }
+		[[nodiscard]] constexpr const std::chrono::milliseconds connection_close_timeout() const { return connection_close_timeout_; }
 		[[nodiscard]] constexpr const std::optional<proton::duration>& reconnect_delay() const { return reconnect_delay_; }
 		[[nodiscard]] constexpr const std::optional<float>& reconnect_delay_multiplier() const { return reconnect_delay_multiplier_; }
 		[[nodiscard]] constexpr const std::optional<proton::duration>& reconnect_max_delay() const { return reconnect_max_delay_; }
@@ -225,6 +248,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		[[nodiscard]] constexpr const std::optional<bool>& sasl_allow_insecure() const { return sasl_allow_insecure_; }
 		[[nodiscard]] constexpr const std::optional<proton::delivery_mode>& sender_delivery_mode() const { return sender_delivery_mode_; }
 		[[nodiscard]] constexpr const std::optional<bool>& sender_auto_settle() const { return sender_auto_settle_; }
+		[[nodiscard]] constexpr const std::chrono::milliseconds sender_close_timeout() const { return sender_close_timeout_; }
 		[[nodiscard]] constexpr const std::optional<std::string>& sender_source_address() const { return sender_source_address_; }
 		[[nodiscard]] constexpr const std::optional<bool>& sender_source_dynamic() const { return sender_source_dynamic_; }
 		[[nodiscard]] constexpr const std::optional<bool>& sender_source_anonymous() const { return sender_source_anonymous_; }
@@ -239,6 +263,9 @@ namespace irods::plugin::rule_engine::audit_amqp
 		[[nodiscard]] constexpr const std::optional<proton::duration>& sender_target_timeout() const { return sender_target_timeout_; }
 		[[nodiscard]] constexpr const std::optional<enum proton::target::expiry_policy>& sender_target_expiry_policy() const { return sender_target_expiry_policy_; }
 		[[nodiscard]] constexpr const std::optional<bool>& durable_messages() const { return durable_messages_; }
+		[[nodiscard]] constexpr const std::chrono::milliseconds message_send_timeout() const { return message_send_timeout_; }
+		[[nodiscard]] constexpr const std::chrono::milliseconds session_close_timeout() const { return session_close_timeout_; }
+		// NOLINTEND(readability-const-return-type)
 
 		static const amqp_config& default_config()
 		{
@@ -266,6 +293,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 		std::optional<std::uint16_t> connection_max_sessions_;
 		std::optional<proton::duration> connection_idle_timeout_;
 		std::optional<std::string> connection_virtual_host_;
+		std::chrono::milliseconds connection_open_timeout_;
+		std::chrono::milliseconds connection_close_timeout_;
 		std::optional<proton::duration> reconnect_delay_;
 		std::optional<float> reconnect_delay_multiplier_;
 		std::optional<proton::duration> reconnect_max_delay_;
@@ -283,6 +312,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 		std::optional<proton::delivery_mode> sender_delivery_mode_;
 		std::optional<bool> sender_auto_settle_;
+		std::chrono::milliseconds sender_close_timeout_;
 
 		std::optional<std::string> sender_source_address_;
 		std::optional<bool> sender_source_dynamic_;
@@ -300,6 +330,9 @@ namespace irods::plugin::rule_engine::audit_amqp
 		std::optional<enum proton::target::expiry_policy> sender_target_expiry_policy_;
 
 		std::optional<bool> durable_messages_;
+		std::chrono::milliseconds message_send_timeout_;
+
+		std::chrono::milliseconds session_close_timeout_;
 
 		static std::optional<amqp_config> default_instance_;
 	};
