@@ -45,8 +45,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 			static constexpr const std::string_view path{"queues/irods_audit_messages"};
 
-			static constexpr const std::string_view user{};
-			static constexpr const std::string_view password{};
+			static constexpr const std::optional<std::string> user = std::nullopt;
+			static constexpr const std::optional<std::string> password = std::nullopt;
 
 			static constexpr const std::optional<std::uint32_t> connection_max_frame_size = std::nullopt;
 			static constexpr const std::optional<std::uint16_t> connection_max_sessions = std::nullopt;
@@ -104,8 +104,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 			path_.clear();
 
-			user_.clear();
-			password_.clear();
+			user_ = std::nullopt;
+			password_ = std::nullopt;
 
 			connection_max_frame_size_ = std::nullopt;
 			connection_max_sessions_ = std::nullopt;
@@ -205,8 +205,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 		[[nodiscard]] constexpr const std::string& primary_endpoint() const { return primary_endpoint_; }
 		[[nodiscard]] constexpr const std::vector<std::string>& failover_endpoints() const { return failover_endpoints_; }
 		[[nodiscard]] constexpr const std::string& path() const { return path_; }
-		[[nodiscard]] constexpr const std::string& user() const { return user_; }
-		[[nodiscard]] constexpr const std::string& password() const { return password_; }
+		[[nodiscard]] constexpr const std::optional<std::string>& user() const { return user_; }
+		[[nodiscard]] constexpr const std::optional<std::string>& password() const { return password_; }
 		[[nodiscard]] constexpr const std::optional<std::uint32_t>& connection_max_frame_size() const { return connection_max_frame_size_; }
 		[[nodiscard]] constexpr const std::optional<std::uint16_t>& connection_max_sessions() const { return connection_max_sessions_; }
 		[[nodiscard]] constexpr const std::optional<proton::duration>& connection_idle_timeout() const { return connection_idle_timeout_; }
@@ -259,8 +259,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 		std::string path_;
 
-		std::string user_;
-		std::string password_;
+		std::optional<std::string> user_;
+		std::optional<std::string> password_;
 
 		std::optional<std::uint32_t> connection_max_frame_size_;
 		std::optional<std::uint16_t> connection_max_sessions_;

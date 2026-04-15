@@ -121,20 +121,14 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 		bool found_user = false;
 		const auto user_cfg = _plugin_specific_configuration.find("amqp_user");
-		if (user_cfg == _plugin_specific_configuration.end()) {
-			user_ = defaults::user;
-		}
-		else {
+		if (user_cfg != _plugin_specific_configuration.end()) {
 			user_ = user_cfg->get_ref<const std::string&>();
 			found_user = true;
 		}
 
 		bool found_password = false;
 		const auto password_cfg = _plugin_specific_configuration.find("amqp_password");
-		if (password_cfg == _plugin_specific_configuration.end()) {
-			password_ = defaults::password;
-		}
-		else {
+		if (password_cfg != _plugin_specific_configuration.end()) {
 			password_ = password_cfg->get_ref<const std::string&>();
 			found_password = true;
 		}
@@ -221,6 +215,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				}
 				else {
 					user_ = proton_url.user();
+					found_user = true;
 					if (proton_url.has_password()) {
 						if (found_password) {
 							// clang-format off
@@ -233,6 +228,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 						}
 						else {
 							password_ = proton_url.password();
+							found_password = true;
 						}
 					}
 				}
@@ -240,6 +236,13 @@ namespace irods::plugin::rule_engine::audit_amqp
 		}
 
 		failover_endpoints_.shrink_to_fit();
+
+		if (!found_user) {
+			user_ = defaults::user;
+		}
+		if (!found_password) {
+			password_ = defaults::password;
+		}
 
 		bool found_path = false;
 		std::stringstream path_ss;
@@ -1007,11 +1010,11 @@ namespace irods::plugin::rule_engine::audit_amqp
 		if (!failover_endpoints_.empty()) {
 			_conn_opts.failover_urls(failover_endpoints_);
 		}
-		if (!user_.empty()) {
-			_conn_opts.user(user_);
+		if (user_.has_value()) {
+			_conn_opts.user(*user_);
 		}
-		if (!password_.empty()) {
-			_conn_opts.password(password_);
+		if (password_.has_value()) {
+			_conn_opts.password(*password_);
 		}
 		if (connection_max_frame_size_.has_value()) {
 			_conn_opts.max_frame_size(*connection_max_frame_size_);
