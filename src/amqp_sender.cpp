@@ -17,13 +17,12 @@
 #include <proton/connection.hpp>
 #include <proton/connection_options.hpp>
 #include <proton/container.hpp>
+#include <proton/error.hpp>
 #include <proton/error_condition.hpp>
 #include <proton/message.hpp>
-#include <proton/reconnect_options.hpp>
 #include <proton/sender.hpp>
 #include <proton/sender_options.hpp>
 #include <proton/session.hpp>
-#include <proton/target_options.hpp>
 #include <proton/timestamp.hpp>
 #include <proton/tracker.hpp>
 #include <proton/transport.hpp>
@@ -33,6 +32,7 @@
 
 #include <chrono>
 #include <cstdint>
+#include <exception>
 #include <mutex>
 #include <optional>
 #include <ostream>
@@ -396,16 +396,29 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 		std::binary_semaphore send_semaphore(0);
 		proton::sender& sender = *sender_;
-		const bool is_sending = sender.work_queue().add([&sender, &msg, &send_semaphore]() {
-			const proton::tracker t = sender.send(msg);
+		std::exception_ptr send_e;
+		const bool is_sending = sender.work_queue().add([&sender, &msg, &send_semaphore, &send_e]() {
+			try {
+				const proton::tracker t = sender.send(msg);
 #ifdef IRODS_AUDIT_EXTRA_TRACE
-			// clang-format off
-			log_re::debug({
-				{"rule_engine_plugin", rule_engine_name},
-				{"tracker::state", std::to_string(t.state())},
-			});
-			// clang-format on
+				// clang-format off
+				log_re::debug({
+					{"rule_engine_plugin", rule_engine_name},
+					{"tracker::state", std::to_string(t.state())},
+				});
+				// clang-format on
 #endif
+			}
+			catch (const std::exception& e) {
+				send_e = std::current_exception();
+				// clang-format off
+				log_re::error({
+					{"rule_engine_plugin", rule_engine_name},
+					{"log_message", "Exception thrown while sending AMQP message."},
+					{"exception", e.what()}
+				});
+				// clang-format on
+			}
 			send_semaphore.release();
 		});
 		if (is_sending) {
@@ -422,6 +435,9 @@ namespace irods::plugin::rule_engine::audit_amqp
 			}
 			else {
 				send_semaphore.acquire();
+			}
+			if (send_e) {
+				std::rethrow_exception(send_e);
 			}
 		}
 		else {
