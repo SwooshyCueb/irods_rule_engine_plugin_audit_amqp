@@ -376,22 +376,22 @@ namespace irods::plugin::rule_engine::audit_amqp
 		}
 		catch (const irods::exception& e) {
 			const std::string e_what = e.what();
-			log_exception(log_re::info, "Caught iRODS exception", e_what, _instance_name);
+			log_exception(log_re::error, "Caught iRODS exception", e_what, _instance_name);
 			return ERROR(e.code(), e_what);
 		}
 		catch (const nlohmann::json::exception& e) {
 			const std::string e_what = e.what();
-			log_exception(log_re::info, "Caught nlohmann-json exception", e_what, _instance_name);
+			log_exception(log_re::error, "Caught nlohmann-json exception", e_what, _instance_name);
 			return ERROR(SYS_LIBRARY_ERROR, e_what);
 		}
 		catch (const std::exception& e) {
 			const std::string e_what = e.what();
-			log_exception(log_re::info, "Caught exception", e_what, _instance_name);
+			log_exception(log_re::error, "Caught exception", e_what, _instance_name);
 			return ERROR(SYS_INTERNAL_ERR, e_what);
 		}
 		catch (...) {
 			// clang-format off
-			log_re::info({
+			log_re::error({
 				{"rule_engine_plugin", rule_engine_name},
 				{"instance_name", _instance_name},
 				{"log_message", "Caught unknown exception"}
@@ -430,22 +430,22 @@ namespace irods::plugin::rule_engine::audit_amqp
 		}
 		catch (const irods::exception& e) {
 			const std::string e_what = e.what();
-			log_exception(log_re::info, "Caught iRODS exception", e_what, _instance_name);
+			log_exception(log_re::error, "Caught iRODS exception", e_what, _instance_name);
 			return ERROR(e.code(), e_what);
 		}
 		catch (const nlohmann::json::exception& e) {
 			const std::string e_what = e.what();
-			log_exception(log_re::info, "Caught nlohmann-json exception", e_what, _instance_name);
+			log_exception(log_re::error, "Caught nlohmann-json exception", e_what, _instance_name);
 			return ERROR(SYS_LIBRARY_ERROR, e_what);
 		}
 		catch (const std::exception& e) {
 			const std::string e_what = e.what();
-			log_exception(log_re::info, "Caught exception", e_what, _instance_name);
+			log_exception(log_re::error, "Caught exception", e_what, _instance_name);
 			return ERROR(SYS_INTERNAL_ERR, e_what);
 		}
 		catch (...) {
 			// clang-format off
-			log_re::info({
+			log_re::error({
 				{"rule_engine_plugin", rule_engine_name},
 				{"instance_name", _instance_name},
 				{"log_message", "Caught unknown exception"}
@@ -592,17 +592,17 @@ namespace irods::plugin::rule_engine::audit_amqp
 			audit_amqp_sender.send_message(json_obj, time_ms, getpid(), log_file_ofstream);
 		}
 		catch (const irods::exception& e) {
-			log_exception(log_re::info, "Caught iRODS exception", e.what(), _instance_name, _rn);
+			log_exception(log_re::error, "Caught iRODS exception", e.what(), _instance_name, _rn);
 		}
 		catch (const nlohmann::json::exception& e) {
-			log_exception(log_re::info, "Caught nlohmann-json exception", e.what(), _instance_name, _rn);
+			log_exception(log_re::error, "Caught nlohmann-json exception", e.what(), _instance_name, _rn);
 		}
 		catch (const std::exception& e) {
-			log_exception(log_re::info, "Caught exception", e.what(), _instance_name, _rn);
+			log_exception(log_re::error, "Caught exception", e.what(), _instance_name, _rn);
 		}
 		catch (...) {
 			// clang-format off
-			log_re::info({
+			log_re::error({
 				{"rule_engine_plugin", rule_engine_name},
 				{"instance_name", _instance_name},
 				{"rule_name", _rn},
