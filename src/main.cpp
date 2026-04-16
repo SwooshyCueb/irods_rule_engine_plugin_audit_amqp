@@ -105,7 +105,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		irods::error get_re_configs(const std::string& _instance_name)
 		{
 			try {
-				const auto& rule_engines = irods::get_server_property<const nlohmann::json&>(std::vector<std::string>{
+				const auto rule_engines = irods::get_server_property<nlohmann::json>(std::vector<std::string>{
 					irods::KW_CFG_PLUGIN_CONFIGURATION, irods::KW_CFG_PLUGIN_TYPE_RULE_ENGINE});
 				for (const auto& rule_engine : rule_engines) {
 					const auto& inst_name = rule_engine.at(irods::KW_CFG_INSTANCE_NAME).get_ref<const std::string&>();
