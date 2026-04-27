@@ -1131,6 +1131,19 @@ namespace irods::plugin::rule_engine::audit_amqp
 				std::chrono::milliseconds(static_cast<std::chrono::milliseconds::rep>(session_close_timeout));
 		}
 
+		// look for amqp_options and log a warning if it is present
+		const auto amqp_options_cfg = _plugin_specific_configuration.find("amqp_options");
+		if (amqp_options_cfg != _plugin_specific_configuration.end()) {
+			// clang-format off
+			log_re::warn({
+				{"rule_engine_plugin", rule_engine_name},
+				{"instance_name", _re_instance_name},
+				{"log_message", "Found amqp_options configuration setting. This setting is no longer used and should "
+				                "be removed from the plugin configuration."},
+			});
+			// clang-format on
+		}
+
 		is_initialized_ = true;
 		return SUCCESS();
 	}

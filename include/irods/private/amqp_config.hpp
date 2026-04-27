@@ -1,5 +1,5 @@
-#ifndef IRODS_AUDIT_AUDIT_CONFIG_HPP
-#define IRODS_AUDIT_AUDIT_CONFIG_HPP
+#ifndef IRODS_AUDIT_AMQP_CONFIG_HPP
+#define IRODS_AUDIT_AMQP_CONFIG_HPP
 
 #include "irods/private/audit_amqp.hpp"
 
@@ -338,4 +338,4 @@ namespace irods::plugin::rule_engine::audit_amqp
 	};
 } //namespace irods::plugin::rule_engine::audit_amqp
 
-#endif // IRODS_AUDIT_AUDIT_CONFIG_HPP
+#endif // IRODS_AUDIT_AMQP_CONFIG_HPP

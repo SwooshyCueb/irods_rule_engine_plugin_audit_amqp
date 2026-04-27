@@ -1,9 +1,8 @@
 #include "irods/private/audit_amqp.hpp"
 #include "irods/private/audit_b64enc.hpp"
-#include "irods/private/amqp_config.hpp"
+#include "irods/private/audit_config.hpp"
 #include "irods/private/amqp_sender.hpp"
 
-#include <irods/irods_configuration_keywords.hpp>
 #include <irods/irods_error.hpp>
 #include <irods/irods_exception.hpp>
 #include <irods/irods_logger.hpp>
@@ -11,14 +10,11 @@
 #include <irods/irods_re_plugin.hpp>
 #include <irods/irods_re_serialization.hpp>
 #include <irods/irods_re_structs.hpp>
-#include <irods/irods_server_properties.hpp>
 #include <irods/msParam.h>
 #include <irods/rodsDef.h>
 #include <irods/rodsErrorTable.h>
 
-#include <boost/algorithm/string/predicate.hpp>
 #include <boost/any.hpp>
-#include <boost/url/url_view.hpp>
 
 #include <fmt/format.h>
 #include <fmt/compile.h>
@@ -38,9 +34,7 @@
 #include <list>
 #include <map>
 #include <regex>
-#include <stdexcept>
 #include <string>
-#include <string_view>
 #include <vector>
 #include <version>
 #include <utility>
@@ -64,164 +58,14 @@ namespace irods::plugin::rule_engine::audit_amqp
 {
 	namespace
 	{
-		const auto pep_regex_flavor = std::regex::ECMAScript;
-
 		// NOLINTBEGIN(cert-err58-cpp, cppcoreguidelines-avoid-non-const-global-variables)
-		const std::string_view default_pep_regex_to_match{"pep_.+"};
-
-		const fs::path default_log_path_prefix{fs::temp_directory_path()};
-		const bool default_test_mode = false;
-
-		std::string audit_pep_regex_to_match;
-
-		amqp_config audit_amqp_config;
-
-		fs::path log_path_prefix;
-		bool test_mode;
-
-		// audit_pep_regex is initially populated with an unoptimized default, as optimization
-		// makes construction slower, and we don't expect it to be used before configuration is read.
-		std::regex audit_pep_regex{audit_pep_regex_to_match, pep_regex_flavor};
+		plugin_config audit_config;
 
 		amqp_sender audit_amqp_sender;
 
 		fs::path log_file_path;
 		std::ofstream log_file_ofstream;
-
-		bool is_configured = false;
-		bool is_old_config = false;
-
 		// NOLINTEND(cert-err58-cpp, cppcoreguidelines-avoid-non-const-global-variables)
-
-		void set_default_configs()
-		{
-			audit_pep_regex_to_match = default_pep_regex_to_match;
-
-			audit_amqp_config.initialize_from_defaults();
-
-			test_mode = default_test_mode;
-			log_path_prefix = default_log_path_prefix;
-
-			audit_pep_regex = std::regex(audit_pep_regex_to_match, pep_regex_flavor | std::regex::optimize);
-		}
-
-		irods::error get_re_configs(const std::string& _instance_name)
-		{
-			if (!is_configured) {
-				set_default_configs();
-			}
-
-			try {
-				const auto rule_engines = irods::get_server_property<nlohmann::json>(std::vector<std::string>{
-					irods::KW_CFG_PLUGIN_CONFIGURATION, irods::KW_CFG_PLUGIN_TYPE_RULE_ENGINE});
-				for (const auto& rule_engine : rule_engines) {
-					const auto& inst_name = rule_engine.at(irods::KW_CFG_INSTANCE_NAME).get_ref<const std::string&>();
-					if (inst_name != _instance_name) {
-						continue;
-					}
-
-					const auto plugin_spec_cfg_ = rule_engine.find(irods::KW_CFG_PLUGIN_SPECIFIC_CONFIGURATION);
-					if (plugin_spec_cfg_ == rule_engine.end()) {
-						if (is_configured) {
-							is_old_config = true;
-						}
-						return ERROR(CONFIGURATION_ERROR, "Failed to find plugin-specific configuration");;
-					}
-
-					const auto& plugin_spec_cfg = *plugin_spec_cfg_;
-
-					const auto& new_audit_pep_regex_to_match =
-						plugin_spec_cfg.at("pep_regex_to_match").get_ref<const std::string&>();
-
-					amqp_config new_audit_amqp_config;
-					irods::error res = new_audit_amqp_config.initialize(plugin_spec_cfg, _instance_name);
-					if (!res.ok()) {
-						if (is_configured) {
-							is_old_config = true;
-						}
-						return PASS(res);
-					}
-
-					// test_mode is optional
-					bool new_test_mode;
-					const auto test_mode_cfg = plugin_spec_cfg.find("test_mode");
-					if (test_mode_cfg == plugin_spec_cfg.end()) {
-						new_test_mode = default_test_mode;
-					}
-					else if (test_mode_cfg->is_string()) {
-						const auto& test_mode_str = test_mode_cfg->get_ref<const std::string&>();
-						new_test_mode = boost::iequals(test_mode_str, "true");
-					}
-					else {
-						new_test_mode = test_mode_cfg->get<bool>();
-					}
-
-					// log_path_prefix is optional
-					fs::path new_log_path_prefix;
-					const auto log_path_prefix_cfg = plugin_spec_cfg.find("log_path_prefix");
-					if (log_path_prefix_cfg == plugin_spec_cfg.end()) {
-						new_log_path_prefix = default_log_path_prefix;
-					}
-					else {
-						new_log_path_prefix = log_path_prefix_cfg->get_ref<const std::string&>();
-					}
-
-					// look for amqp_options and log a warning if it is present
-					const auto amqp_options_cfg = plugin_spec_cfg.find("amqp_options");
-					if (amqp_options_cfg != plugin_spec_cfg.end()) {
-						// clang-format off
-						log_re::warn({
-							{"rule_engine_plugin", rule_engine_name},
-							{"instance_name", _instance_name},
-							{"log_message", "Found amqp_options configuration setting. This setting is no longer used "
-							                "and should be removed from the plugin configuration."},
-						});
-						// clang-format on
-					}
-
-					audit_pep_regex_to_match = new_audit_pep_regex_to_match;
-					audit_pep_regex = std::regex(audit_pep_regex_to_match, pep_regex_flavor | std::regex::optimize);
-					test_mode = new_test_mode;
-					log_path_prefix = new_log_path_prefix;
-
-					audit_amqp_config = new_audit_amqp_config;
-
-					is_configured = true;
-					is_old_config = false;
-
-					return SUCCESS();
-				}
-			}
-			catch (const std::out_of_range& e) {
-				if (is_configured) {
-					is_old_config = true;
-				}
-				return ERROR(KEY_NOT_FOUND, e.what());
-			}
-			catch (const nlohmann::json::exception& e) {
-				if (is_configured) {
-					is_old_config = true;
-				}
-				return ERROR(SYS_LIBRARY_ERROR, e.what());
-			}
-			catch (const std::exception& e) {
-				if (is_configured) {
-					is_old_config = true;
-				}
-				return ERROR(SYS_INTERNAL_ERR, e.what());
-			}
-			catch (...) {
-				if (is_configured) {
-					is_old_config = true;
-				}
-				return ERROR(SYS_UNKNOWN_ERROR, "An unknown error occurred");
-			}
-
-			if (is_configured) {
-				is_old_config = true;
-			}
-			return ERROR(CONFIGURATION_ERROR, "Failed to find plugin configuration");
-		}
 
 		template <class Logger>
 		void log_test_mode_diag(const Logger& _logger,
@@ -269,7 +113,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// test log should never throw exceptions
 		log_file_ofstream.exceptions(static_cast<std::ios_base::iostate>(0));
 
-		irods::error ret = get_re_configs(_instance_name);
+		irods::error ret = audit_config.initialize(_instance_name);
 		if (!ret.ok()) {
 			// clang-format off
 			log_re::error({
@@ -283,7 +127,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			return PASSMSG("Error loading plugin configuration", ret);
 		}
 
-		ret = audit_amqp_sender.configure(_instance_name, audit_amqp_config);
+		ret = audit_amqp_sender.configure(_instance_name, audit_config.amqp_config());
 		if (!ret.ok()) {
 			// clang-format off
 			log_re::error({
@@ -349,8 +193,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 			json_obj["action"] = "START";
 
-			if (test_mode) {
-				if (log_path_prefix.empty()) {
+			if (audit_config.test_mode_enabled()) {
+				if (audit_config.test_mode_log_path_prefix().empty()) {
 					log_test_mode_diag(
 						log_re::trace, "log_path_prefix is empty. cannot open test log.", _instance_name);
 					log_file_path.clear();
@@ -364,7 +208,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 					}
 				}
 				else {
-					log_file_path = log_path_prefix / fmt::format(FMT_COMPILE("{0:08d}.txt"), pid);
+					log_file_path =
+						audit_config.test_mode_log_path_prefix() / fmt::format(FMT_COMPILE("{0:08d}.txt"), pid);
 					json_obj["log_file"] = log_file_path;
 
 					const std::string log_file_path_str = log_file_path.string();
@@ -452,7 +297,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			const std::uint64_t time_ms = ts_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
 
 			json_obj["action"] = "STOP";
-			if (test_mode && !log_file_path.empty()) {
+			if (audit_config.test_mode_enabled() && !log_file_path.empty()) {
 				json_obj["log_file"] = log_file_path;
 			}
 
@@ -504,7 +349,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 	{
 		try {
 			std::smatch matches;
-			_ret = std::regex_match(_rn, matches, audit_pep_regex);
+			_ret = std::regex_match(_rn, matches, audit_config.pep_regex());
 		}
 		catch (const std::exception& _e) {
 			return ERROR(SYS_INTERNAL_ERR, _e.what());
@@ -655,8 +500,6 @@ using pluggable_rule_engine = irods::pluggable_rule_engine<irods::default_re_ctx
 extern "C" auto plugin_factory(const std::string& _inst_name, const std::string& _context) -> pluggable_rule_engine*
 {
 	using namespace irods::plugin::rule_engine::audit_amqp;
-
-	set_default_configs();
 
 	const auto not_supported = [](auto&&...) { return ERROR(SYS_NOT_SUPPORTED, "Not supported."); };
 
