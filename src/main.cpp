@@ -88,6 +88,9 @@ namespace irods::plugin::rule_engine::audit_amqp
 		fs::path log_file_path;
 		std::ofstream log_file_ofstream;
 
+		bool is_configured = false;
+		bool is_old_config = false;
+
 		// NOLINTEND(cert-err58-cpp, cppcoreguidelines-avoid-non-const-global-variables)
 
 		void set_default_configs()
@@ -104,6 +107,10 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 		irods::error get_re_configs(const std::string& _instance_name)
 		{
+			if (!is_configured) {
+				set_default_configs();
+			}
+
 			try {
 				const auto rule_engines = irods::get_server_property<nlohmann::json>(std::vector<std::string>{
 					irods::KW_CFG_PLUGIN_CONFIGURATION, irods::KW_CFG_PLUGIN_TYPE_RULE_ENGINE});
@@ -115,47 +122,48 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 					const auto plugin_spec_cfg_ = rule_engine.find(irods::KW_CFG_PLUGIN_SPECIFIC_CONFIGURATION);
 					if (plugin_spec_cfg_ == rule_engine.end()) {
-						set_default_configs();
-						// clang-format off
-						log_re::warn({
-							{"rule_engine_plugin", rule_engine_name},
-							{"instance_name", _instance_name},
-							{"log_message", "Using default plugin configuration"},
-						});
-						// clang-format on
-
-						return SUCCESS();
+						if (is_configured) {
+							is_old_config = true;
+						}
+						return ERROR(CONFIGURATION_ERROR, "Failed to find plugin-specific configuration");;
 					}
 
 					const auto& plugin_spec_cfg = *plugin_spec_cfg_;
 
-					audit_pep_regex_to_match = plugin_spec_cfg.at("pep_regex_to_match").get<std::string>();
+					const auto& new_audit_pep_regex_to_match =
+						plugin_spec_cfg.at("pep_regex_to_match").get_ref<const std::string&>();
 
-					irods::error res = audit_amqp_config.initialize(plugin_spec_cfg, _instance_name);
+					amqp_config new_audit_amqp_config;
+					irods::error res = new_audit_amqp_config.initialize(plugin_spec_cfg, _instance_name);
 					if (!res.ok()) {
+						if (is_configured) {
+							is_old_config = true;
+						}
 						return PASS(res);
 					}
 
 					// test_mode is optional
+					bool new_test_mode;
 					const auto test_mode_cfg = plugin_spec_cfg.find("test_mode");
 					if (test_mode_cfg == plugin_spec_cfg.end()) {
-						test_mode = default_test_mode;
+						new_test_mode = default_test_mode;
 					}
 					else if (test_mode_cfg->is_string()) {
 						const auto& test_mode_str = test_mode_cfg->get_ref<const std::string&>();
-						test_mode = boost::iequals(test_mode_str, "true");
+						new_test_mode = boost::iequals(test_mode_str, "true");
 					}
 					else {
-						test_mode = test_mode_cfg->get<bool>();
+						new_test_mode = test_mode_cfg->get<bool>();
 					}
 
 					// log_path_prefix is optional
+					fs::path new_log_path_prefix;
 					const auto log_path_prefix_cfg = plugin_spec_cfg.find("log_path_prefix");
 					if (log_path_prefix_cfg == plugin_spec_cfg.end()) {
-						log_path_prefix = default_log_path_prefix;
+						new_log_path_prefix = default_log_path_prefix;
 					}
 					else {
-						log_path_prefix = log_path_prefix_cfg->get<std::string>();
+						new_log_path_prefix = log_path_prefix_cfg->get_ref<const std::string&>();
 					}
 
 					// look for amqp_options and log a warning if it is present
@@ -171,24 +179,47 @@ namespace irods::plugin::rule_engine::audit_amqp
 						// clang-format on
 					}
 
+					audit_pep_regex_to_match = new_audit_pep_regex_to_match;
 					audit_pep_regex = std::regex(audit_pep_regex_to_match, pep_regex_flavor | std::regex::optimize);
+					test_mode = new_test_mode;
+					log_path_prefix = new_log_path_prefix;
+
+					audit_amqp_config = new_audit_amqp_config;
+
+					is_configured = true;
+					is_old_config = false;
 
 					return SUCCESS();
 				}
 			}
 			catch (const std::out_of_range& e) {
+				if (is_configured) {
+					is_old_config = true;
+				}
 				return ERROR(KEY_NOT_FOUND, e.what());
 			}
 			catch (const nlohmann::json::exception& e) {
+				if (is_configured) {
+					is_old_config = true;
+				}
 				return ERROR(SYS_LIBRARY_ERROR, e.what());
 			}
 			catch (const std::exception& e) {
+				if (is_configured) {
+					is_old_config = true;
+				}
 				return ERROR(SYS_INTERNAL_ERR, e.what());
 			}
 			catch (...) {
+				if (is_configured) {
+					is_old_config = true;
+				}
 				return ERROR(SYS_UNKNOWN_ERROR, "An unknown error occurred");
 			}
 
+			if (is_configured) {
+				is_old_config = true;
+			}
 			return ERROR(CONFIGURATION_ERROR, "Failed to find plugin configuration");
 		}
 
