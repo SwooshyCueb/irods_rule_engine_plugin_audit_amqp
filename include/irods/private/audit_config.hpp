@@ -82,6 +82,10 @@ namespace irods::plugin::rule_engine::audit_amqp
 			return *default_instance_;
 		}
 
+		static constexpr const char* const KW_PEP_REGEX = "pep_regex_to_match";
+		static constexpr const char* const KW_TEST_MODE = "test_mode";
+		static constexpr const char* const KW_TEST_MODE_LOG_PATH_PREFIX = "log_path_prefix";
+
 	  private:
 		irods::error load_configuration(const nlohmann::json& _plugin_specific_configuration,
 		                                const std::string& _re_instance_name);

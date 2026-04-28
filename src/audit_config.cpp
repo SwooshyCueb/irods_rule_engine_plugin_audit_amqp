@@ -38,7 +38,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 	                                               const std::string& _re_instance_name)
 	{
 		const auto& new_pep_regex =
-			_plugin_specific_configuration.at("pep_regex_to_match").get_ref<const std::string&>();
+			_plugin_specific_configuration.at(KW_PEP_REGEX).get_ref<const std::string&>();
 
 		class amqp_config new_amqp_config;
 		irods::error res = new_amqp_config.initialize(_plugin_specific_configuration, _re_instance_name);
@@ -51,7 +51,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 		// test_mode is optional
 		bool new_test_mode_enabled;
-		const auto test_mode_cfg = _plugin_specific_configuration.find("test_mode");
+		const auto test_mode_cfg = _plugin_specific_configuration.find(KW_TEST_MODE);
 		if (test_mode_cfg == _plugin_specific_configuration.end()) {
 			new_test_mode_enabled = defaults::test_mode_enabled;
 		}
@@ -65,7 +65,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 		// log_path_prefix is optional
 		fs::path new_test_mode_log_path_prefix;
-		const auto log_path_prefix_cfg = _plugin_specific_configuration.find("log_path_prefix");
+		const auto log_path_prefix_cfg = _plugin_specific_configuration.find(KW_TEST_MODE_LOG_PATH_PREFIX);
 		if (log_path_prefix_cfg == _plugin_specific_configuration.end()) {
 			new_test_mode_log_path_prefix = fs::temp_directory_path();
 		}

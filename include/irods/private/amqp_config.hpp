@@ -278,6 +278,68 @@ namespace irods::plugin::rule_engine::audit_amqp
 			return *default_instance_;
 		}
 
+		static constexpr const char* const KW_ENDPOINTS = "amqp_endpoints";
+		static constexpr const char* const KW_ENDPOINT_SCHEME = "scheme";
+		static constexpr const char* const KW_ENDPOINT_HOST = "host";
+		static constexpr const char* const KW_ENDPOINT_PORT = "port";
+		static constexpr const char* const KW_ENDPOINT_PARAMETERS = "parameters";
+		static constexpr const char* const KW_ENDPOINT_FRAGMENT = "fragment";
+
+		static constexpr const char* const KW_USER = "amqp_user";
+		static constexpr const char* const KW_PASSWORD = "amqp_password";
+
+		static constexpr const char* const KW_PATH = "amqp_path";
+		static constexpr const char* const KW_PATH_PARAMETERS = "amqp_path_parameters";
+		static constexpr const char* const KW_PATH_FRAGMENT = "amqp_path_fragment";
+
+		static constexpr const char* const KW_DEPRECATED_LOCATION = "amqp_location";
+		static constexpr const char* const KW_DEPRECATED_TOPIC = "amqp_topic";
+
+		static constexpr const char* const KW_SSL = "amqp_ssl";
+		static constexpr const char* const KW_SSL_VERIFY_MODE = "verify_mode";
+		static constexpr const char* const KW_SSL_TRUST_DB = "trust_db";
+		static constexpr const char* const KW_SSL_CERTDB_MAIN = "certdb_main";
+		static constexpr const char* const KW_SSL_CERTDB_EXTRA = "certdb_extra";
+		static constexpr const char* const KW_SSL_CERT_PASSWORD = "cert_password";
+
+		static constexpr const char* const KW_SASL = "amqp_sasl";
+		static constexpr const char* const KW_SASL_ENABLE = "enable";
+		static constexpr const char* const KW_SASL_MECHANISMS = "mechanisms";
+		static constexpr const char* const KW_SASL_ALLOW_INSECURE = "allow_insecure";
+
+		static constexpr const char* const KW_CONNECTION_MAX_FRAME_SIZE = "amqp_connection_max_frame_size";
+		static constexpr const char* const KW_CONNECTION_MAX_SESSIONS = "amqp_connection_max_sessions";
+		static constexpr const char* const KW_CONNECTION_IDLE_TIMEOUT = "amqp_connection_idle_timeout";
+		static constexpr const char* const KW_CONNECTION_VIRTUAL_HOST = "amqp_connection_virtual_host";
+		static constexpr const char* const KW_CONNECTION_OPEN_TIMEOUT = "amqp_connection_open_timeout";
+		static constexpr const char* const KW_CONNECTION_CLOSE_TIMEOUT = "amqp_connection_close_timeout";
+		static constexpr const char* const KW_RECONNECT_BASE_DELAY = "amqp_reconnect_base_delay";
+		static constexpr const char* const KW_RECONNECT_DELAY_MULTIPLIER = "amqp_reconnect_delay_multiplier";
+		static constexpr const char* const KW_RECONNECT_MAX_DELAY = "amqp_reconnect_max_delay";
+		static constexpr const char* const KW_RECONNECT_MAX_ATTEMPTS = "amqp_reconnect_max_attempts";
+
+		static constexpr const char* const KW_SENDER = "amqp_sender";
+		static constexpr const char* const KW_LINK_DELIVERY_MODE = "delivery_mode";
+		static constexpr const char* const KW_LINK_AUTO_SETTLE = "auto_settle";
+		static constexpr const char* const KW_LINK_CLOSE_TIMEOUT = "close_timeout";
+
+		static constexpr const char* const KW_LINK_SOURCE = "source";
+		static constexpr const char* const KW_LINK_TARGET = "target";
+		static constexpr const char* const KW_TERMINUS_ADDRESS = "address";
+		static constexpr const char* const KW_TERMINUS_DYNAMIC = "dynamic";
+		static constexpr const char* const KW_TERMINUS_ANONYMOUS = "anonymous";
+		static constexpr const char* const KW_TERMINUS_DURABILITY_MODE = "durability_mode";
+		static constexpr const char* const KW_TERMINUS_TIMEOUT = "timeout";
+		static constexpr const char* const KW_TERMINUS_EXPIRY_POLICY = "expiry_policy";
+		static constexpr const char* const KW_SOURCE_DISTRIBUTION_MODE = "distribution_mode";
+
+		static constexpr const char* const KW_DURABLE_MESSAGES = "amqp_durable_messages";
+		static constexpr const char* const KW_MESSAGE_SEND_TIMEOUT = "amqp_message_send_timeout";
+
+		static constexpr const char* const KW_SESSION_CLOSE_TIMEOUT = "amqp_session_close_timeout";
+
+		static constexpr const char* const KW_DEPRECATED_OPTIONS = "amqp_options";
+
 	  private:
 		bool is_initialized_{false};
 

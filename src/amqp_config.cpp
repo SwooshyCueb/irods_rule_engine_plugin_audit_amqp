@@ -44,21 +44,21 @@ namespace irods::plugin::rule_engine::audit_amqp
 		deinitialize();
 
 		bool found_endpoint = false;
-		const auto amqp_endpoints_cfg = _plugin_specific_configuration.find("amqp_endpoints");
+		const auto amqp_endpoints_cfg = _plugin_specific_configuration.find(KW_ENDPOINTS);
 		if (amqp_endpoints_cfg != _plugin_specific_configuration.end()) {
 			const auto& endpoints_cfg = *amqp_endpoints_cfg;
 			for (const auto& endpoint_cfg : endpoints_cfg) {
 				std::stringstream endpoint_ss;
 
-				const auto scheme_cfg = endpoint_cfg.find("scheme");
+				const auto scheme_cfg = endpoint_cfg.find(KW_ENDPOINT_SCHEME);
 				if ((scheme_cfg != endpoint_cfg.end()) && !scheme_cfg->is_null()) {
 					endpoint_ss << scheme_cfg->get_ref<const std::string&>() << "://";
 				}
 
-				const auto& host = endpoint_cfg.at("host").get_ref<const std::string&>();
+				const auto& host = endpoint_cfg.at(KW_ENDPOINT_HOST).get_ref<const std::string&>();
 				endpoint_ss << host;
 
-				const auto port_cfg = endpoint_cfg.find("port");
+				const auto port_cfg = endpoint_cfg.find(KW_ENDPOINT_PORT);
 				if ((port_cfg != endpoint_cfg.end()) && !port_cfg->is_null()) {
 					const auto& port = port_cfg->get_ref<const nlohmann::json::number_unsigned_t&>();
 					if (port > std::numeric_limits<std::uint16_t>::max()) {
@@ -69,7 +69,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 							{"log_message",
 							 fmt::format(FMT_COMPILE("AMQP endpoint port must not exceed {}."),
 							             std::numeric_limits<std::uint16_t>::max())},
-							{"port", std::to_string(port)}
+							{KW_ENDPOINT_PORT, std::to_string(port)}
 						});
 						// clang-format on
 						return ERROR(CONFIGURATION_ERROR,
@@ -80,7 +80,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				}
 
 				bool found_endpoint_params = false;
-				const auto endpoint_params_cfg = endpoint_cfg.find("parameters");
+				const auto endpoint_params_cfg = endpoint_cfg.find(KW_ENDPOINT_PARAMETERS);
 				if ((endpoint_params_cfg != endpoint_cfg.end()) && !endpoint_params_cfg->is_null()) {
 					const auto& endpoint_params = *endpoint_params_cfg;
 					for (const auto& [ep_key, ep_val] : endpoint_params.items()) {
@@ -101,7 +101,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					}
 				}
 
-				const auto endpoint_frag_cfg = endpoint_cfg.find("fragment");
+				const auto endpoint_frag_cfg = endpoint_cfg.find(KW_ENDPOINT_FRAGMENT);
 				if ((endpoint_frag_cfg != endpoint_cfg.end()) && !endpoint_frag_cfg->is_null()) {
 					const auto& endpoint_frag = *endpoint_frag_cfg;
 					endpoint_ss << '#' << endpoint_frag.get_ref<const std::string&>();
@@ -118,7 +118,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		}
 
 		bool found_user = false;
-		const auto user_cfg = _plugin_specific_configuration.find("amqp_user");
+		const auto user_cfg = _plugin_specific_configuration.find(KW_USER);
 		if (user_cfg != _plugin_specific_configuration.end()) {
 			found_user = true;
 			if (!user_cfg->is_null()) {
@@ -127,7 +127,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		}
 
 		bool found_password = false;
-		const auto password_cfg = _plugin_specific_configuration.find("amqp_password");
+		const auto password_cfg = _plugin_specific_configuration.find(KW_PASSWORD);
 		if (password_cfg != _plugin_specific_configuration.end()) {
 			found_password = true;
 			if (!password_cfg->is_null()) {
@@ -136,17 +136,19 @@ namespace irods::plugin::rule_engine::audit_amqp
 		}
 
 		// check amqp_location
-		const auto amqp_location_cfg = _plugin_specific_configuration.find("amqp_location");
+		const auto amqp_location_cfg = _plugin_specific_configuration.find(KW_DEPRECATED_LOCATION);
 		if (amqp_location_cfg == _plugin_specific_configuration.end()) {
 			if (!found_endpoint) {
+				const std::string& errmsg =
+					fmt::format(FMT_COMPILE("{} empty or not present in rule engine configuration."), KW_ENDPOINTS);
 				// clang-format off
 				log_re::error({
 					{"rule_engine_plugin", rule_engine_name},
 					{"instance_name", _re_instance_name},
-					{"log_message", "amqp_endpoints empty or not present in rule engine configuration."}
+					{"log_message", errmsg}
 				});
 				// clang-format on
-				return ERROR(CONFIGURATION_ERROR, "amqp_endpoints empty or not present in rule engine configuration.");
+				return ERROR(CONFIGURATION_ERROR, errmsg);
 			}
 		}
 		else {
@@ -154,9 +156,10 @@ namespace irods::plugin::rule_engine::audit_amqp
 			log_re::warn({
 				{"rule_engine_plugin", rule_engine_name},
 				{"instance_name", _re_instance_name},
-				{"log_message", "Found amqp_location configuration setting. This setting has been deprecated in favor "
-				                "of amqp_endpoints, amqp_user, and amqp_password and will be ignored in future "
-				                "versions of the plugin."}
+				{"log_message",
+				 fmt::format(FMT_COMPILE("Found {} configuration setting. This setting has been deprecated in favor "
+				                         "of {}, {}, and {} and will be ignored in future versions of the plugin."),
+				             KW_DEPRECATED_LOCATION, KW_ENDPOINTS, KW_USER, KW_PASSWORD)}
 			});
 			// clang-format on
 
@@ -168,21 +171,25 @@ namespace irods::plugin::rule_engine::audit_amqp
 				log_re::info({
 					{"rule_engine_plugin", rule_engine_name},
 					{"instance_name", _re_instance_name},
-					{"log_message", "Ignoring location from amqp_location in favor of amqp_endpoints."},
+					{"log_message",
+					 fmt::format(FMT_COMPILE("Ignoring location from {} in favor of {}."),
+					             KW_DEPRECATED_LOCATION, KW_ENDPOINTS)},
 				});
 				// clang-format on
 			}
 			else {
 				if (!proton_url.has_authority()) {
+					const std::string& errmsg =
+						fmt::format(FMT_COMPILE("Cannot derive AMQP endpoint host from {}."), KW_DEPRECATED_LOCATION);
 					// clang-format off
 					log_re::error({
 						{"rule_engine_plugin", rule_engine_name},
 						{"instance_name", _re_instance_name},
-						{"log_message", "Could not get host from amqp_location"},
-						{"amqp_location", amqp_location},
+						{"log_message", errmsg},
+						{KW_DEPRECATED_LOCATION, amqp_location},
 					});
 					// clang-format on
-					return ERROR(CONFIGURATION_ERROR, "Cannot derive AMQP endpoint host from amqp_location.");
+					return ERROR(CONFIGURATION_ERROR, errmsg);
 				}
 
 				std::stringstream endpoint_ss;
@@ -210,8 +217,9 @@ namespace irods::plugin::rule_engine::audit_amqp
 					log_re::info({
 						{"rule_engine_plugin", rule_engine_name},
 						{"instance_name", _re_instance_name},
-						{"log_message", "Ignoring credentials from amqp_location in favor of amqp_user and "
-						                "amqp_password."},
+						{"log_message",
+						 fmt::format(FMT_COMPILE("Ignoring credentials from {} in favor of {} and {}."),
+						             KW_DEPRECATED_LOCATION, KW_USER, KW_PASSWORD)},
 					});
 					// clang-format on
 				}
@@ -224,7 +232,9 @@ namespace irods::plugin::rule_engine::audit_amqp
 							log_re::info({
 								{"rule_engine_plugin", rule_engine_name},
 								{"instance_name", _re_instance_name},
-								{"log_message", "Ignoring password from amqp_location in favor of amqp_password."},
+								{"log_message",
+								 fmt::format(FMT_COMPILE("Ignoring password from {} in favor of {}."),
+								             KW_DEPRECATED_LOCATION, KW_USER)},
 							});
 							// clang-format on
 						}
@@ -248,7 +258,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 		bool found_path = false;
 		std::stringstream path_ss;
-		const auto amqp_path_cfg = _plugin_specific_configuration.find("amqp_path");
+		const auto amqp_path_cfg = _plugin_specific_configuration.find(KW_PATH);
 		if (amqp_path_cfg != _plugin_specific_configuration.end()) {
 			const auto& amqp_path_str = amqp_path_cfg->get_ref<const std::string&>();
 			if (!amqp_path_str.empty()) {
@@ -258,14 +268,15 @@ namespace irods::plugin::rule_engine::audit_amqp
 		}
 
 		// check amqp_topic
-		const auto amqp_topic_cfg = _plugin_specific_configuration.find("amqp_topic");
+		const auto amqp_topic_cfg = _plugin_specific_configuration.find(KW_DEPRECATED_TOPIC);
 		if (amqp_topic_cfg == _plugin_specific_configuration.end()) {
 			if (!found_path) {
 				// clang-format off
 				log_re::info({
 					{"rule_engine_plugin", rule_engine_name},
 					{"instance_name", _re_instance_name},
-					{"log_message", "amqp_path not present in rule engine configuration."}
+					{"log_message",
+					 fmt::format(FMT_COMPILE("{} not present in rule engine configuration."), KW_PATH)},
 				});
 				// clang-format on
 			}
@@ -275,8 +286,10 @@ namespace irods::plugin::rule_engine::audit_amqp
 			log_re::warn({
 				{"rule_engine_plugin", rule_engine_name},
 				{"instance_name", _re_instance_name},
-				{"log_message", "Found amqp_topic configuration setting. This setting has been deprecated in favor of "
-				                "amqp_path and will be ignored in future versions of the plugin."}
+				{"log_message",
+				 fmt::format(FMT_COMPILE("Found {} configuration setting. This setting has been deprecated in favor "
+				                         "of {} and will be ignored in future versions of the plugin."),
+				             KW_DEPRECATED_TOPIC, KW_PATH)},
 			});
 			// clang-format on
 
@@ -285,7 +298,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 				log_re::info({
 					{"rule_engine_plugin", rule_engine_name},
 					{"instance_name", _re_instance_name},
-					{"log_message", "Ignoring amqp_topic in favor of amqp_path."},
+					{"log_message",
+					 fmt::format(FMT_COMPILE("Ignoring {} in favor of {}."), KW_DEPRECATED_TOPIC, KW_PATH)},
 				});
 				// clang-format on
 			}
@@ -298,7 +312,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		}
 
 		bool found_path_params = false;
-		const auto path_params_cfg = _plugin_specific_configuration.find("amqp_path_parameters");
+		const auto path_params_cfg = _plugin_specific_configuration.find(KW_PATH_PARAMETERS);
 		if ((path_params_cfg != _plugin_specific_configuration.end()) && !path_params_cfg->is_null()) {
 			const auto& path_params = *path_params_cfg;
 			for (const auto& [pp_key, pp_val] : path_params.items()) {
@@ -314,7 +328,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			}
 		}
 
-		const auto path_frag_cfg = _plugin_specific_configuration.find("amqp_path_fragment");
+		const auto path_frag_cfg = _plugin_specific_configuration.find(KW_PATH_FRAGMENT);
 		if ((path_frag_cfg != _plugin_specific_configuration.end()) && !path_frag_cfg->is_null()) {
 			const auto& path_frag = *path_frag_cfg;
 			path_ss << '#' << path_frag.get_ref<const std::string&>();
@@ -322,7 +336,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 		path_ = path_ss.str();
 
-		const auto amqp_ssl_cfg = _plugin_specific_configuration.find("amqp_ssl");
+		const auto amqp_ssl_cfg = _plugin_specific_configuration.find(KW_SSL);
 		if ((amqp_ssl_cfg == _plugin_specific_configuration.end()) || amqp_ssl_cfg->is_null()) {
 			ssl_verify_mode_ = defaults::ssl_verify_mode;
 			ssl_trust_db_ = defaults::ssl_trust_db;
@@ -333,7 +347,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		else {
 			const auto& ssl_cfg = *amqp_ssl_cfg;
 
-			const auto ssl_verify_mode_cfg = ssl_cfg.find("verify_mode");
+			const auto ssl_verify_mode_cfg = ssl_cfg.find(KW_SSL_VERIFY_MODE);
 			if (ssl_verify_mode_cfg == ssl_cfg.end()) {
 				ssl_verify_mode_ = defaults::ssl_verify_mode;
 			}
@@ -354,16 +368,19 @@ namespace irods::plugin::rule_engine::audit_amqp
 					log_re::error({
 						{"rule_engine_plugin", rule_engine_name},
 						{"instance_name", _re_instance_name},
-						{"log_message", "verify_mode must be one of [VERIFY_PEER, ANONYMOUS_PEER, VERIFY_PEER_NAME]."},
-						{"amqp_ssl::verify_mode", ssl_verify_mode}
+						{"log_message",
+						 fmt::format(FMT_COMPILE("{} must be one of [VERIFY_PEER, ANONYMOUS_PEER, VERIFY_PEER_NAME]."),
+						             KW_SSL_VERIFY_MODE)},
+						{fmt::format(FMT_COMPILE("{}:{}"), KW_SSL, KW_SSL_VERIFY_MODE), ssl_verify_mode},
 					});
 					// clang-format on
-					return ERROR(CONFIGURATION_ERROR, "Unrecognized amqp_ssl::verify_mode value.");
+					return ERROR(CONFIGURATION_ERROR,
+					             fmt::format(FMT_COMPILE("Unrecognized {}:{} value."), KW_SSL, KW_SSL_VERIFY_MODE));
 				}
 			}
 
 			bool found_trust_db = false;
-			const auto ssl_trust_db_cfg = ssl_cfg.find("trust_db");
+			const auto ssl_trust_db_cfg = ssl_cfg.find(KW_SSL_TRUST_DB);
 			if (ssl_trust_db_cfg == ssl_cfg.end()) {
 				ssl_trust_db_ = defaults::ssl_trust_db;
 			}
@@ -373,7 +390,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			}
 
 			bool found_certdb_main = false;
-			const auto ssl_certdb_main_cfg = ssl_cfg.find("certdb_main");
+			const auto ssl_certdb_main_cfg = ssl_cfg.find(KW_SSL_CERTDB_MAIN);
 			if (ssl_certdb_main_cfg == ssl_cfg.end()) {
 				ssl_certdb_main_ = defaults::ssl_certdb_main;
 			}
@@ -383,7 +400,9 @@ namespace irods::plugin::rule_engine::audit_amqp
 				log_re::warn({
 					{"rule_engine_plugin", rule_engine_name},
 					{"instance_name", _re_instance_name},
-					{"log_message", "Found certdb_main but no trust_db. Ignoring certdb_main."}
+					{"log_message",
+					 fmt::format(FMT_COMPILE("Found {} but no {}. Ignoring {}."),
+					             KW_SSL_CERTDB_MAIN, KW_SSL_TRUST_DB, KW_SSL_CERTDB_MAIN)},
 				});
 				// clang-format on
 			}
@@ -393,7 +412,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			}
 
 			bool found_certdb_extra = false;
-			const auto ssl_certdb_extra_cfg = ssl_cfg.find("certdb_extra");
+			const auto ssl_certdb_extra_cfg = ssl_cfg.find(KW_SSL_CERTDB_EXTRA);
 			if (ssl_certdb_extra_cfg == ssl_cfg.end()) {
 				ssl_certdb_extra_ = defaults::ssl_certdb_extra;
 			}
@@ -403,7 +422,9 @@ namespace irods::plugin::rule_engine::audit_amqp
 				log_re::warn({
 					{"rule_engine_plugin", rule_engine_name},
 					{"instance_name", _re_instance_name},
-					{"log_message", "Found certdb_extra but no certdb_main. Ignoring certdb_extra."}
+					{"log_message",
+					 fmt::format(FMT_COMPILE("Found {} but no {}. Ignoring {}."),
+					             KW_SSL_CERTDB_EXTRA, KW_SSL_CERTDB_MAIN, KW_SSL_CERTDB_EXTRA)},
 				});
 				// clang-format on
 			}
@@ -412,7 +433,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				found_certdb_extra = true;
 			}
 
-			const auto ssl_cert_password_cfg = ssl_cfg.find("cert_password");
+			const auto ssl_cert_password_cfg = ssl_cfg.find(KW_SSL_CERT_PASSWORD);
 			if (ssl_cert_password_cfg == ssl_cfg.end()) {
 				ssl_cert_password_ = defaults::ssl_cert_password;
 			}
@@ -422,7 +443,9 @@ namespace irods::plugin::rule_engine::audit_amqp
 				log_re::warn({
 					{"rule_engine_plugin", rule_engine_name},
 					{"instance_name", _re_instance_name},
-					{"log_message", "Found cert_password but no certdb_extra. Ignoring cert_password."}
+					{"log_message",
+					 fmt::format(FMT_COMPILE("Found {} but no {}. Ignoring {}."),
+					             KW_SSL_CERT_PASSWORD, KW_SSL_CERTDB_EXTRA, KW_SSL_CERT_PASSWORD)},
 				});
 				// clang-format on
 			}
@@ -431,7 +454,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			}
 		}
 
-		const auto amqp_sasl_cfg = _plugin_specific_configuration.find("amqp_sasl");
+		const auto amqp_sasl_cfg = _plugin_specific_configuration.find(KW_SASL);
 		if ((amqp_sasl_cfg == _plugin_specific_configuration.end()) || amqp_sasl_cfg->is_null()) {
 			sasl_enabled_ = defaults::sasl_enabled;
 			sasl_mechanisms_ = defaults::sasl_mechanisms;
@@ -440,7 +463,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		else {
 			const auto& sasl_cfg = *amqp_sasl_cfg;
 
-			const auto sasl_enabled_cfg = sasl_cfg.find("enable");
+			const auto sasl_enabled_cfg = sasl_cfg.find(KW_SASL_ENABLE);
 			if (sasl_enabled_cfg == sasl_cfg.end()) {
 				sasl_enabled_ = defaults::sasl_enabled;
 			}
@@ -448,7 +471,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				sasl_enabled_ = sasl_enabled_cfg->get<bool>();
 			}
 
-			const auto mechanisms_cfg = sasl_cfg.find("mechanisms");
+			const auto mechanisms_cfg = sasl_cfg.find(KW_SASL_MECHANISMS);
 			if (mechanisms_cfg == sasl_cfg.end()) {
 				sasl_mechanisms_ = defaults::sasl_mechanisms;
 			}
@@ -469,7 +492,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				sasl_mechanisms_ = mechanisms_cfg->get_ref<const std::string&>();
 			}
 
-			const auto sasl_allow_insecure_cfg = sasl_cfg.find("allow_insecure");
+			const auto sasl_allow_insecure_cfg = sasl_cfg.find(KW_SASL_ALLOW_INSECURE);
 			if (sasl_allow_insecure_cfg == sasl_cfg.end()) {
 				sasl_allow_insecure_ = defaults::sasl_allow_insecure;
 			}
@@ -478,7 +501,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			}
 		}
 
-		const auto max_frame_size_cfg = _plugin_specific_configuration.find("amqp_connection_max_frame_size");
+		const auto max_frame_size_cfg = _plugin_specific_configuration.find(KW_CONNECTION_MAX_FRAME_SIZE);
 		if (max_frame_size_cfg == _plugin_specific_configuration.end()) {
 			connection_max_frame_size_ = defaults::connection_max_frame_size;
 		}
@@ -492,7 +515,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					{"log_message",
 					 fmt::format(FMT_COMPILE("Max frame size must not exceed {}."),
 					             std::numeric_limits<std::uint32_t>::max())},
-					{"amqp_connection_max_frame_size", std::to_string(max_frame_size)}
+					{KW_CONNECTION_MAX_FRAME_SIZE, std::to_string(max_frame_size)}
 				});
 				// clang-format on
 				return ERROR(CONFIGURATION_ERROR,
@@ -502,7 +525,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			connection_max_frame_size_ = static_cast<std::uint32_t>(max_frame_size);
 		}
 
-		const auto max_sessions_cfg = _plugin_specific_configuration.find("amqp_connection_max_sessions");
+		const auto max_sessions_cfg = _plugin_specific_configuration.find(KW_CONNECTION_MAX_SESSIONS);
 		if (max_sessions_cfg == _plugin_specific_configuration.end()) {
 			connection_max_sessions_ = defaults::connection_max_sessions;
 		}
@@ -516,7 +539,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					{"log_message",
 					 fmt::format(FMT_COMPILE("Max sessions must not exceed {}."),
 					             std::numeric_limits<std::uint16_t>::max())},
-					{"amqp_connection_max_sessions", std::to_string(max_sessions)}
+					{KW_CONNECTION_MAX_SESSIONS, std::to_string(max_sessions)}
 				});
 				// clang-format on
 				return ERROR(CONFIGURATION_ERROR,
@@ -526,7 +549,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			connection_max_sessions_ = static_cast<std::uint16_t>(max_sessions);
 		}
 
-		const auto idle_timeout_cfg = _plugin_specific_configuration.find("amqp_connection_idle_timeout");
+		const auto idle_timeout_cfg = _plugin_specific_configuration.find(KW_CONNECTION_IDLE_TIMEOUT);
 		if (idle_timeout_cfg == _plugin_specific_configuration.end()) {
 			connection_idle_timeout_ = defaults::connection_idle_timeout;
 		}
@@ -540,7 +563,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					{"log_message",
 					 fmt::format(FMT_COMPILE("Idle timeout must not exceed {}."),
 					             std::numeric_limits<proton::duration::numeric_type>::max())},
-					{"amqp_connection_idle_timeout", std::to_string(idle_timeout)}
+					{KW_CONNECTION_IDLE_TIMEOUT, std::to_string(idle_timeout)}
 				});
 				// clang-format on
 				return ERROR(CONFIGURATION_ERROR,
@@ -550,7 +573,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			connection_idle_timeout_ = static_cast<proton::duration::numeric_type>(idle_timeout);
 		}
 
-		const auto virtual_host_cfg = _plugin_specific_configuration.find("amqp_connection_virtual_host");
+		const auto virtual_host_cfg = _plugin_specific_configuration.find(KW_CONNECTION_VIRTUAL_HOST);
 		if (virtual_host_cfg == _plugin_specific_configuration.end()) {
 			connection_virtual_host_ = defaults::connection_virtual_host;
 		}
@@ -558,7 +581,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			connection_virtual_host_ = virtual_host_cfg->get_ref<const std::string&>();
 		}
 
-		const auto connection_open_timeout_cfg = _plugin_specific_configuration.find("amqp_connection_open_timeout");
+		const auto connection_open_timeout_cfg = _plugin_specific_configuration.find(KW_CONNECTION_OPEN_TIMEOUT);
 		if (connection_open_timeout_cfg == _plugin_specific_configuration.end()) {
 			connection_open_timeout_ = defaults::connection_open_timeout;
 		}
@@ -573,7 +596,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					{"log_message",
 					 fmt::format(FMT_COMPILE("Connection open timeout must not exceed {}."),
 					             std::numeric_limits<std::chrono::milliseconds::rep>::max())},
-					{"amqp_connection_open_timeout", std::to_string(connection_open_timeout)}
+					{KW_CONNECTION_OPEN_TIMEOUT, std::to_string(connection_open_timeout)}
 				});
 				// clang-format on
 				return ERROR(CONFIGURATION_ERROR,
@@ -584,7 +607,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				std::chrono::milliseconds(static_cast<std::chrono::milliseconds::rep>(connection_open_timeout));
 		}
 
-		const auto connection_close_timeout_cfg = _plugin_specific_configuration.find("amqp_connection_close_timeout");
+		const auto connection_close_timeout_cfg = _plugin_specific_configuration.find(KW_CONNECTION_CLOSE_TIMEOUT);
 		if (connection_close_timeout_cfg == _plugin_specific_configuration.end()) {
 			connection_close_timeout_ = defaults::connection_close_timeout;
 		}
@@ -599,7 +622,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					{"log_message",
 					 fmt::format(FMT_COMPILE("Connection close timeout must not exceed {}."),
 					             std::numeric_limits<std::chrono::milliseconds::rep>::max())},
-					{"amqp_connection_close_timeout", std::to_string(connection_close_timeout)}
+					{KW_CONNECTION_CLOSE_TIMEOUT, std::to_string(connection_close_timeout)}
 				});
 				// clang-format on
 				return ERROR(CONFIGURATION_ERROR,
@@ -610,7 +633,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				std::chrono::milliseconds(static_cast<std::chrono::milliseconds::rep>(connection_close_timeout));
 		}
 
-		const auto reconnect_delay_cfg = _plugin_specific_configuration.find("amqp_reconnect_base_delay");
+		const auto reconnect_delay_cfg = _plugin_specific_configuration.find(KW_RECONNECT_BASE_DELAY);
 		if (reconnect_delay_cfg == _plugin_specific_configuration.end()) {
 			reconnect_delay_ = defaults::reconnect_delay;
 		}
@@ -624,7 +647,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					{"log_message",
 					 fmt::format(FMT_COMPILE("Base reconnect delay must not exceed {}."),
 					             std::numeric_limits<proton::duration::numeric_type>::max())},
-					{"amqp_reconnect_base_delay", std::to_string(reconnect_delay)}
+					{KW_RECONNECT_BASE_DELAY, std::to_string(reconnect_delay)}
 				});
 				// clang-format on
 				return ERROR(CONFIGURATION_ERROR,
@@ -634,8 +657,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			reconnect_delay_ = static_cast<proton::duration::numeric_type>(reconnect_delay);
 		}
 
-		const auto reconnect_delay_multiplier_cfg =
-			_plugin_specific_configuration.find("amqp_reconnect_delay_multiplier");
+		const auto reconnect_delay_multiplier_cfg = _plugin_specific_configuration.find(KW_RECONNECT_DELAY_MULTIPLIER);
 		if (reconnect_delay_multiplier_cfg == _plugin_specific_configuration.end()) {
 			reconnect_delay_multiplier_ = defaults::reconnect_delay_multiplier;
 		}
@@ -644,7 +666,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				static_cast<float>(reconnect_delay_multiplier_cfg->get_ref<const nlohmann::json::number_float_t&>());
 		}
 
-		const auto reconnect_max_delay_cfg = _plugin_specific_configuration.find("amqp_reconnect_max_delay");
+		const auto reconnect_max_delay_cfg = _plugin_specific_configuration.find(KW_RECONNECT_MAX_DELAY);
 		if (reconnect_max_delay_cfg == _plugin_specific_configuration.end()) {
 			reconnect_max_delay_ = defaults::reconnect_max_delay;
 		}
@@ -659,7 +681,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					{"log_message",
 					 fmt::format(FMT_COMPILE("Max reconnect delay must not exceed {}."),
 					             std::numeric_limits<proton::duration::numeric_type>::max())},
-					{"amqp_reconnect_max_delay", std::to_string(reconnect_max_delay)}
+					{KW_RECONNECT_MAX_DELAY, std::to_string(reconnect_max_delay)}
 				});
 				// clang-format on
 				return ERROR(CONFIGURATION_ERROR,
@@ -669,7 +691,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			reconnect_max_delay_ = static_cast<proton::duration::numeric_type>(reconnect_max_delay);
 		}
 
-		const auto reconnect_max_attempts_cfg = _plugin_specific_configuration.find("amqp_reconnect_max_attempts");
+		const auto reconnect_max_attempts_cfg = _plugin_specific_configuration.find(KW_RECONNECT_MAX_ATTEMPTS);
 		if (reconnect_max_attempts_cfg == _plugin_specific_configuration.end()) {
 			reconnect_max_attempts_ = defaults::reconnect_max_attempts;
 		}
@@ -684,7 +706,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					{"log_message",
 					 fmt::format(FMT_COMPILE("Max reconnect attempts must not exceed {}."),
 					             std::numeric_limits<int>::max())},
-					{"amqp_reconnect_max_attempts", std::to_string(reconnect_max_attempts)}
+					{KW_RECONNECT_MAX_ATTEMPTS, std::to_string(reconnect_max_attempts)}
 				});
 				// clang-format on
 				return ERROR(CONFIGURATION_ERROR,
@@ -694,7 +716,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			reconnect_max_attempts_ = static_cast<int>(reconnect_max_attempts);
 		}
 
-		const auto amqp_sender_cfg = _plugin_specific_configuration.find("amqp_sender");
+		const auto amqp_sender_cfg = _plugin_specific_configuration.find(KW_SENDER);
 		if ((amqp_sender_cfg == _plugin_specific_configuration.end()) || amqp_sender_cfg->is_null()) {
 			sender_delivery_mode_ = defaults::sender_delivery_mode;
 			sender_auto_settle_ = defaults::sender_auto_settle;
@@ -718,7 +740,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		else {
 			const auto& sender_cfg = *amqp_sender_cfg;
 
-			const auto sender_delivery_mode_cfg = sender_cfg.find("delivery_mode");
+			const auto sender_delivery_mode_cfg = sender_cfg.find(KW_LINK_DELIVERY_MODE);
 			if (sender_delivery_mode_cfg == sender_cfg.end()) {
 				sender_delivery_mode_ = defaults::sender_delivery_mode;
 			}
@@ -739,15 +761,19 @@ namespace irods::plugin::rule_engine::audit_amqp
 					log_re::error({
 						{"rule_engine_plugin", rule_engine_name},
 						{"instance_name", _re_instance_name},
-						{"log_message", "delivery_mode must be one of [NONE, AT_MOST_ONCE, AT_LEAST_ONCE]."},
-						{"amqp_sender::delivery_mode", sender_delivery_mode}
+						{"log_message",
+						 fmt::format(FMT_COMPILE("{} must be one of [NONE, AT_MOST_ONCE, AT_LEAST_ONCE]."),
+						             KW_LINK_DELIVERY_MODE)},
+						{fmt::format(FMT_COMPILE("{}:{}"), KW_SENDER, KW_LINK_DELIVERY_MODE), sender_delivery_mode},
 					});
 					// clang-format on
-					return ERROR(CONFIGURATION_ERROR, "Unrecognized amqp_sender::delivery_mode value.");
+					return ERROR(
+						CONFIGURATION_ERROR,
+						fmt::format(FMT_COMPILE("Unrecognized {}:{} value."), KW_SENDER, KW_LINK_DELIVERY_MODE));
 				}
 			}
 
-			const auto sender_auto_settle_cfg = sender_cfg.find("auto_settle");
+			const auto sender_auto_settle_cfg = sender_cfg.find(KW_LINK_AUTO_SETTLE);
 			if (sender_auto_settle_cfg == sender_cfg.end()) {
 				sender_auto_settle_ = defaults::sender_auto_settle;
 			}
@@ -755,7 +781,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				sender_auto_settle_ = sender_auto_settle_cfg->get<bool>();
 			}
 
-			const auto sender_close_timeout_cfg = sender_cfg.find("close_timeout");
+			const auto sender_close_timeout_cfg = sender_cfg.find(KW_LINK_CLOSE_TIMEOUT);
 			if (sender_close_timeout_cfg == sender_cfg.end()) {
 				sender_close_timeout_ = defaults::sender_close_timeout;
 			}
@@ -770,7 +796,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 						{"log_message",
 						 fmt::format(FMT_COMPILE("Sender close timeout must not exceed {}."),
 						             std::numeric_limits<std::chrono::milliseconds::rep>::max())},
-						{"amqp_sender::close_timeout", std::to_string(sender_close_timeout)}
+						{fmt::format(FMT_COMPILE("{}:{}"), KW_SENDER, KW_LINK_CLOSE_TIMEOUT),
+						 std::to_string(sender_close_timeout)},
 					});
 					// clang-format on
 					return ERROR(CONFIGURATION_ERROR,
@@ -781,7 +808,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					std::chrono::milliseconds(static_cast<std::chrono::milliseconds::rep>(sender_close_timeout));
 			}
 
-			const auto amqp_sender_source_cfg = sender_cfg.find("source");
+			const auto amqp_sender_source_cfg = sender_cfg.find(KW_LINK_SOURCE);
 			if ((amqp_sender_source_cfg == sender_cfg.end()) || amqp_sender_source_cfg->is_null()) {
 				sender_source_address_ = defaults::sender_source_address;
 				sender_source_dynamic_ = defaults::sender_source_dynamic;
@@ -794,7 +821,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			else {
 				const auto& sender_source_cfg = *amqp_sender_source_cfg;
 
-				const auto source_address_cfg = sender_source_cfg.find("address");
+				const auto source_address_cfg = sender_source_cfg.find(KW_TERMINUS_ADDRESS);
 				if (source_address_cfg == sender_source_cfg.end()) {
 					sender_source_address_ = defaults::sender_source_address;
 				}
@@ -802,7 +829,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					sender_source_address_ = source_address_cfg->get_ref<const std::string&>();
 				}
 
-				const auto source_dynamic_cfg = sender_source_cfg.find("dynamic");
+				const auto source_dynamic_cfg = sender_source_cfg.find(KW_TERMINUS_DYNAMIC);
 				if (source_dynamic_cfg == sender_source_cfg.end()) {
 					sender_source_dynamic_ = defaults::sender_source_dynamic;
 				}
@@ -810,7 +837,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					sender_source_dynamic_ = source_dynamic_cfg->get<bool>();
 				}
 
-				const auto source_anonymous_cfg = sender_source_cfg.find("anonymous");
+				const auto source_anonymous_cfg = sender_source_cfg.find(KW_TERMINUS_ANONYMOUS);
 				if (source_anonymous_cfg == sender_source_cfg.end()) {
 					sender_source_anonymous_ = defaults::sender_source_dynamic;
 				}
@@ -818,7 +845,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					sender_source_anonymous_ = source_anonymous_cfg->get<bool>();
 				}
 
-				const auto source_distribution_mode_cfg = sender_source_cfg.find("distribution_mode");
+				const auto source_distribution_mode_cfg = sender_source_cfg.find(KW_SOURCE_DISTRIBUTION_MODE);
 				if (source_distribution_mode_cfg == sender_source_cfg.end()) {
 					sender_source_distribution_mode_ = defaults::sender_source_distribution_mode;
 				}
@@ -840,15 +867,23 @@ namespace irods::plugin::rule_engine::audit_amqp
 						log_re::error({
 							{"rule_engine_plugin", rule_engine_name},
 							{"instance_name", _re_instance_name},
-							{"log_message", "distribution_mode must be one of [UNSPECIFIED, COPY, MOVE]."},
-							{"amqp_sender::source::distribution_mode", source_distribution_mode}
+							{"log_message",
+							 fmt::format(FMT_COMPILE("{} must be one of [UNSPECIFIED, COPY, MOVE]."),
+							             KW_SOURCE_DISTRIBUTION_MODE)},
+							{fmt::format(FMT_COMPILE("{}:{}:{}"),
+							             KW_SENDER, KW_LINK_SOURCE, KW_SOURCE_DISTRIBUTION_MODE),
+							 source_distribution_mode},
 						});
 						// clang-format on
-						return ERROR(CONFIGURATION_ERROR, "Unrecognized amqp_sender::source::distribution_mode value.");
+						return ERROR(CONFIGURATION_ERROR,
+						             fmt::format(FMT_COMPILE("Unrecognized {}:{}:{} value."),
+						                         KW_SENDER,
+						                         KW_LINK_SOURCE,
+						                         KW_SOURCE_DISTRIBUTION_MODE));
 					}
 				}
 
-				const auto source_durability_mode_cfg = sender_source_cfg.find("durability_mode");
+				const auto source_durability_mode_cfg = sender_source_cfg.find(KW_TERMINUS_DURABILITY_MODE);
 				if (source_durability_mode_cfg == sender_source_cfg.end()) {
 					sender_source_durability_mode_ = defaults::sender_source_durability_mode;
 				}
@@ -871,16 +906,24 @@ namespace irods::plugin::rule_engine::audit_amqp
 						log_re::error({
 							{"rule_engine_plugin", rule_engine_name},
 							{"instance_name", _re_instance_name},
-							{"log_message", "durability_mode must be one of "
-							                "[NONDURABLE, CONFIGURATION, UNSETTLED_STATE, DELIVERIES]."},
-							{"amqp_sender::source::durability_mode", source_durability_mode}
+							{"log_message",
+							 fmt::format(FMT_COMPILE("{} must be one of "
+							                         "[NONDURABLE, CONFIGURATION, UNSETTLED_STATE, DELIVERIES]."),
+							             KW_TERMINUS_DURABILITY_MODE)},
+							{fmt::format(FMT_COMPILE("{}:{}:{}"),
+							             KW_SENDER, KW_LINK_SOURCE, KW_TERMINUS_DURABILITY_MODE),
+							 source_durability_mode},
 						});
 						// clang-format on
-						return ERROR(CONFIGURATION_ERROR, "Unrecognized amqp_sender::source::durability_mode value.");
+						return ERROR(CONFIGURATION_ERROR,
+						             fmt::format(FMT_COMPILE("Unrecognized {}:{}:{} value."),
+						                         KW_SENDER,
+						                         KW_LINK_SOURCE,
+						                         KW_TERMINUS_DURABILITY_MODE));
 					}
 				}
 
-				const auto source_timeout_cfg = sender_source_cfg.find("timeout");
+				const auto source_timeout_cfg = sender_source_cfg.find(KW_TERMINUS_TIMEOUT);
 				if (source_timeout_cfg == sender_source_cfg.end()) {
 					sender_source_timeout_ = defaults::sender_source_timeout;
 				}
@@ -895,7 +938,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 							{"log_message",
 							 fmt::format(FMT_COMPILE("Sender source timeout must not exceed {}."),
 							             std::numeric_limits<proton::duration::numeric_type>::max())},
-							{"amqp_sender::source::timeout", std::to_string(source_timeout)}
+							{fmt::format(FMT_COMPILE("{}:{}:{}"), KW_SENDER, KW_LINK_SOURCE, KW_TERMINUS_TIMEOUT),
+							 std::to_string(source_timeout)},
 						});
 						// clang-format on
 						return ERROR(CONFIGURATION_ERROR,
@@ -905,7 +949,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					sender_source_timeout_ = static_cast<proton::duration::numeric_type>(source_timeout);
 				}
 
-				const auto source_expiry_policy_cfg = sender_source_cfg.find("expiry_policy");
+				const auto source_expiry_policy_cfg = sender_source_cfg.find(KW_TERMINUS_EXPIRY_POLICY);
 				if (source_expiry_policy_cfg == sender_source_cfg.end()) {
 					sender_source_expiry_policy_ = defaults::sender_source_expiry_policy;
 				}
@@ -929,17 +973,25 @@ namespace irods::plugin::rule_engine::audit_amqp
 						log_re::error({
 							{"rule_engine_plugin", rule_engine_name},
 							{"instance_name", _re_instance_name},
-							{"log_message", "expiry_policy must be one of "
-							                "[LINK_CLOSE, SESSION_CLOSE, CONNECTION_CLOSE, NEVER]."},
-							{"amqp_sender::source::expiry_policy", source_expiry_policy}
+							{"log_message",
+							 fmt::format(FMT_COMPILE("{} must be one of "
+							                         "[LINK_CLOSE, SESSION_CLOSE, CONNECTION_CLOSE, NEVER]."),
+							             KW_TERMINUS_EXPIRY_POLICY)},
+							{fmt::format(FMT_COMPILE("{}:{}:{}"),
+							             KW_SENDER, KW_LINK_SOURCE, KW_TERMINUS_EXPIRY_POLICY),
+							 source_expiry_policy},
 						});
 						// clang-format on
-						return ERROR(CONFIGURATION_ERROR, "Unrecognized amqp_sender::source::expiry_policy value.");
+						return ERROR(CONFIGURATION_ERROR,
+						             fmt::format(FMT_COMPILE("Unrecognized {}:{}:{} value."),
+						                         KW_SENDER,
+						                         KW_LINK_SOURCE,
+						                         KW_TERMINUS_EXPIRY_POLICY));
 					}
 				}
 			}
 
-			const auto amqp_sender_target_cfg = sender_cfg.find("target");
+			const auto amqp_sender_target_cfg = sender_cfg.find(KW_LINK_TARGET);
 			if ((amqp_sender_target_cfg == sender_cfg.end()) || amqp_sender_target_cfg->is_null()) {
 				sender_target_address_ = defaults::sender_target_address;
 				sender_target_dynamic_ = defaults::sender_target_dynamic;
@@ -951,7 +1003,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			else {
 				const auto& sender_target_cfg = *amqp_sender_target_cfg;
 
-				const auto target_address_cfg = sender_target_cfg.find("address");
+				const auto target_address_cfg = sender_target_cfg.find(KW_TERMINUS_ADDRESS);
 				if (target_address_cfg == sender_target_cfg.end()) {
 					sender_target_address_ = defaults::sender_target_address;
 				}
@@ -959,7 +1011,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					sender_target_address_ = target_address_cfg->get_ref<const std::string&>();
 				}
 
-				const auto target_dynamic_cfg = sender_target_cfg.find("dynamic");
+				const auto target_dynamic_cfg = sender_target_cfg.find(KW_TERMINUS_DYNAMIC);
 				if (target_dynamic_cfg == sender_target_cfg.end()) {
 					sender_target_dynamic_ = defaults::sender_target_dynamic;
 				}
@@ -967,7 +1019,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					sender_target_dynamic_ = target_dynamic_cfg->get<bool>();
 				}
 
-				const auto target_anonymous_cfg = sender_target_cfg.find("anonymous");
+				const auto target_anonymous_cfg = sender_target_cfg.find(KW_TERMINUS_ANONYMOUS);
 				if (target_anonymous_cfg == sender_target_cfg.end()) {
 					sender_target_anonymous_ = defaults::sender_target_dynamic;
 				}
@@ -975,7 +1027,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					sender_target_anonymous_ = target_anonymous_cfg->get<bool>();
 				}
 
-				const auto target_durability_mode_cfg = sender_target_cfg.find("durability_mode");
+				const auto target_durability_mode_cfg = sender_target_cfg.find(KW_TERMINUS_DURABILITY_MODE);
 				if (target_durability_mode_cfg == sender_target_cfg.end()) {
 					sender_target_durability_mode_ = defaults::sender_target_durability_mode;
 				}
@@ -998,16 +1050,24 @@ namespace irods::plugin::rule_engine::audit_amqp
 						log_re::error({
 							{"rule_engine_plugin", rule_engine_name},
 							{"instance_name", _re_instance_name},
-							{"log_message", "durability_mode must be one of "
-							                "[NONDURABLE, CONFIGURATION, UNSETTLED_STATE, DELIVERIES]."},
-							{"amqp_sender::target::durability_mode", target_durability_mode}
+							{"log_message",
+							 fmt::format(FMT_COMPILE("{} must be one of "
+							                         "[NONDURABLE, CONFIGURATION, UNSETTLED_STATE, DELIVERIES]."),
+							             KW_TERMINUS_DURABILITY_MODE)},
+							{fmt::format(FMT_COMPILE("{}:{}:{}"),
+							             KW_SENDER, KW_LINK_TARGET, KW_TERMINUS_DURABILITY_MODE),
+							 target_durability_mode},
 						});
 						// clang-format on
-						return ERROR(CONFIGURATION_ERROR, "Unrecognized amqp_sender::target::durability_mode value.");
+						return ERROR(CONFIGURATION_ERROR,
+						             fmt::format(FMT_COMPILE("Unrecognized {}:{}:{} value."),
+						                         KW_SENDER,
+						                         KW_LINK_TARGET,
+						                         KW_TERMINUS_DURABILITY_MODE));
 					}
 				}
 
-				const auto target_timeout_cfg = sender_target_cfg.find("timeout");
+				const auto target_timeout_cfg = sender_target_cfg.find(KW_TERMINUS_TIMEOUT);
 				if (target_timeout_cfg == sender_target_cfg.end()) {
 					sender_target_timeout_ = defaults::sender_target_timeout;
 				}
@@ -1022,7 +1082,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 							{"log_message",
 							 fmt::format(FMT_COMPILE("Sender target timeout must not exceed {}."),
 							             std::numeric_limits<proton::duration::numeric_type>::max())},
-							{"amqp_sender::target::timeout", std::to_string(target_timeout)}
+							{fmt::format(FMT_COMPILE("{}:{}:{}"), KW_SENDER, KW_LINK_TARGET, KW_TERMINUS_TIMEOUT),
+							 std::to_string(target_timeout)},
 						});
 						// clang-format on
 						return ERROR(CONFIGURATION_ERROR,
@@ -1032,7 +1093,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					sender_target_timeout_ = static_cast<proton::duration::numeric_type>(target_timeout);
 				}
 
-				const auto target_expiry_policy_cfg = sender_target_cfg.find("expiry_policy");
+				const auto target_expiry_policy_cfg = sender_target_cfg.find(KW_TERMINUS_EXPIRY_POLICY);
 				if (target_expiry_policy_cfg == sender_target_cfg.end()) {
 					sender_target_expiry_policy_ = defaults::sender_target_expiry_policy;
 				}
@@ -1056,18 +1117,26 @@ namespace irods::plugin::rule_engine::audit_amqp
 						log_re::error({
 							{"rule_engine_plugin", rule_engine_name},
 							{"instance_name", _re_instance_name},
-							{"log_message", "expiry_policy must be one of "
-							                "[LINK_CLOSE, SESSION_CLOSE, CONNECTION_CLOSE, NEVER]."},
-							{"amqp_sender::target::expiry_policy", target_expiry_policy}
+							{"log_message",
+							 fmt::format(FMT_COMPILE("{} must be one of "
+							                         "[LINK_CLOSE, SESSION_CLOSE, CONNECTION_CLOSE, NEVER]."),
+							             KW_TERMINUS_EXPIRY_POLICY)},
+							{fmt::format(FMT_COMPILE("{}:{}:{}"),
+							             KW_SENDER, KW_LINK_TARGET, KW_TERMINUS_EXPIRY_POLICY),
+							 target_expiry_policy},
 						});
 						// clang-format on
-						return ERROR(CONFIGURATION_ERROR, "Unrecognized amqp_sender::target::expiry_policy value.");
+						return ERROR(CONFIGURATION_ERROR,
+						             fmt::format(FMT_COMPILE("Unrecognized {}:{}:{} value."),
+						                         KW_SENDER,
+						                         KW_LINK_TARGET,
+						                         KW_TERMINUS_EXPIRY_POLICY));
 					}
 				}
 			}
 		}
 
-		const auto amqp_durable_messages_cfg = _plugin_specific_configuration.find("amqp_durable_messages");
+		const auto amqp_durable_messages_cfg = _plugin_specific_configuration.find(KW_DURABLE_MESSAGES);
 		if (amqp_durable_messages_cfg == _plugin_specific_configuration.end()) {
 			durable_messages_ = defaults::durable_messages;
 		}
@@ -1079,7 +1148,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			durable_messages_ = amqp_durable_messages_cfg->get<bool>();
 		}
 
-		const auto message_send_timeout_cfg = _plugin_specific_configuration.find("amqp_message_send_timeout");
+		const auto message_send_timeout_cfg = _plugin_specific_configuration.find(KW_MESSAGE_SEND_TIMEOUT);
 		if (message_send_timeout_cfg == _plugin_specific_configuration.end()) {
 			message_send_timeout_ = defaults::message_send_timeout;
 		}
@@ -1094,7 +1163,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					{"log_message",
 					 fmt::format(FMT_COMPILE("Message send timeout must not exceed {}."),
 					             std::numeric_limits<std::chrono::milliseconds::rep>::max())},
-					{"amqp_message_send_timeout", std::to_string(message_send_timeout)}
+					{KW_MESSAGE_SEND_TIMEOUT, std::to_string(message_send_timeout)}
 				});
 				// clang-format on
 				return ERROR(CONFIGURATION_ERROR,
@@ -1105,7 +1174,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				std::chrono::milliseconds(static_cast<std::chrono::milliseconds::rep>(message_send_timeout));
 		}
 
-		const auto session_close_timeout_cfg = _plugin_specific_configuration.find("amqp_session_close_timeout");
+		const auto session_close_timeout_cfg = _plugin_specific_configuration.find(KW_SESSION_CLOSE_TIMEOUT);
 		if (session_close_timeout_cfg == _plugin_specific_configuration.end()) {
 			session_close_timeout_ = defaults::session_close_timeout;
 		}
@@ -1120,7 +1189,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					{"log_message",
 					 fmt::format(FMT_COMPILE("Session close timeout must not exceed {}."),
 					             std::numeric_limits<std::chrono::milliseconds::rep>::max())},
-					{"amqp_session_close_timeout", std::to_string(session_close_timeout)}
+					{KW_SESSION_CLOSE_TIMEOUT, std::to_string(session_close_timeout)}
 				});
 				// clang-format on
 				return ERROR(CONFIGURATION_ERROR,
@@ -1132,14 +1201,16 @@ namespace irods::plugin::rule_engine::audit_amqp
 		}
 
 		// look for amqp_options and log a warning if it is present
-		const auto amqp_options_cfg = _plugin_specific_configuration.find("amqp_options");
+		const auto amqp_options_cfg = _plugin_specific_configuration.find(KW_DEPRECATED_OPTIONS);
 		if (amqp_options_cfg != _plugin_specific_configuration.end()) {
 			// clang-format off
 			log_re::warn({
 				{"rule_engine_plugin", rule_engine_name},
 				{"instance_name", _re_instance_name},
-				{"log_message", "Found amqp_options configuration setting. This setting is no longer used and should "
-				                "be removed from the plugin configuration."},
+				{"log_message",
+				 fmt::format(FMT_COMPILE("Found {} configuration setting. This setting is no longer used and should "
+				                         "be removed from the plugin configuration."),
+				             KW_DEPRECATED_OPTIONS)},
 			});
 			// clang-format on
 		}
