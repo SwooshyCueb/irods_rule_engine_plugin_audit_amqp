@@ -66,7 +66,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// clang-format off
 		std::vector<irods::experimental::log::key_value> log_kvs({
 			{"rule_engine_plugin", rule_engine_name},
-			{"instance_name", _re_instance_name},
+			{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
 			{"call", __PRETTY_FUNCTION__},
 			{"primary_endpoint", _amqp_config.primary_endpoint()},
 		});
@@ -91,7 +91,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// clang-format off
 		log_re::trace({
 			{"rule_engine_plugin", rule_engine_name},
-			{"instance_name", re_instance_name_},
+			{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 			{"call", __PRETTY_FUNCTION__}
 		});
 		// clang-format on
@@ -120,7 +120,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// clang-format off
 		std::vector<irods::experimental::log::key_value> log_kvs({
 			{"rule_engine_plugin", rule_engine_name},
-			{"instance_name", re_instance_name_},
+			{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 			{"call", __PRETTY_FUNCTION__},
 			{"primary_endpoint", amqp_config_.primary_endpoint()},
 		});
@@ -153,7 +153,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				// clang-format off
 				log_re::error({
 					{"rule_engine_plugin", rule_engine_name},
-					{"instance_name", re_instance_name_},
+					{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 					{"log_message", "Reached timeout while establishing AMQP connection."}
 				});
 				// clang-format on
@@ -174,7 +174,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// clang-format off
 		log_re::trace({
 			{"rule_engine_plugin", rule_engine_name},
-			{"instance_name", re_instance_name_},
+			{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 			{"call", __PRETTY_FUNCTION__},
 		});
 		// clang-format on
@@ -195,7 +195,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 						// clang-format off
 						log_re::error({
 							{"rule_engine_plugin", rule_engine_name},
-							{"instance_name", re_instance_name_},
+							{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 							{"log_message", "Reached timeout while closing AMQP sender."}
 						});
 						// clang-format on
@@ -208,7 +208,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				// clang-format off
 				log_re::trace({
 					{"rule_engine_plugin", rule_engine_name},
-					{"instance_name", re_instance_name_},
+					{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 					{"log_message", "AMQP sender closed"},
 				});
 				// clang-format on
@@ -218,7 +218,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				// clang-format off
 				log_re::warn({
 					{"rule_engine_plugin", rule_engine_name},
-					{"instance_name", re_instance_name_},
+					{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 					{"log_message", "Could not queue AMQP sender close call"},
 				});
 				// clang-format on
@@ -238,7 +238,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 						// clang-format off
 						log_re::error({
 							{"rule_engine_plugin", rule_engine_name},
-							{"instance_name", re_instance_name_},
+							{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 							{"log_message", "Reached timeout while closing AMQP session."}
 						});
 						// clang-format on
@@ -251,7 +251,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				// clang-format off
 				log_re::trace({
 					{"rule_engine_plugin", rule_engine_name},
-					{"instance_name", re_instance_name_},
+					{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 					{"log_message", "AMQP session closed"},
 				});
 				// clang-format on
@@ -261,7 +261,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				// clang-format off
 				log_re::warn({
 					{"rule_engine_plugin", rule_engine_name},
-					{"instance_name", re_instance_name_},
+					{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 					{"log_message", "Could not queue AMQP session close call"},
 				});
 				// clang-format on
@@ -286,7 +286,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 						// clang-format off
 						log_re::error({
 							{"rule_engine_plugin", rule_engine_name},
-							{"instance_name", re_instance_name_},
+							{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 							{"log_message", "Reached timeout while closing AMQP connection."}
 						});
 						// clang-format on
@@ -300,7 +300,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				// clang-format off
 				log_re::trace({
 					{"rule_engine_plugin", rule_engine_name},
-					{"instance_name", re_instance_name_},
+					{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 					{"log_message", "AMQP connection closed"},
 				});
 #endif
@@ -310,7 +310,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				// clang-format off
 				log_re::warn({
 					{"rule_engine_plugin", rule_engine_name},
-					{"instance_name", re_instance_name_},
+					{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 					{"log_message", "Could not queue AMQP connection close call"},
 				});
 				// clang-format on
@@ -323,7 +323,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			// clang-format off
 			log_re::trace({
 				{"rule_engine_plugin", rule_engine_name},
-				{"instance_name", re_instance_name_},
+				{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 				{"log_message", "AMQP container stopped"},
 			});
 #endif
@@ -337,7 +337,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				// clang-format off
 				log_re::trace({
 					{"rule_engine_plugin", rule_engine_name},
-					{"instance_name", re_instance_name_},
+					{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 					{"log_message", "Proton thread joined"},
 				});
 #endif
@@ -347,7 +347,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				// clang-format off
 				log_re::debug({
 					{"rule_engine_plugin", rule_engine_name},
-					{"instance_name", re_instance_name_},
+					{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 					{"log_message", "Proton thread not joinable"},
 				});
 				// clang-format on
@@ -375,7 +375,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// clang-format off
 		log_re::trace({
 			{"rule_engine_plugin", rule_engine_name},
-			{"instance_name", re_instance_name_},
+			{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 			{"call", __PRETTY_FUNCTION__},
 		});
 		// clang-format on
@@ -427,7 +427,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					// clang-format off
 					log_re::error({
 						{"rule_engine_plugin", rule_engine_name},
-						{"instance_name", re_instance_name_},
+						{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 						{"log_message", "Reached timeout while sending AMQP message."}
 					});
 					// clang-format on
@@ -444,7 +444,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			// clang-format off
 			log_re::error({
 				{"rule_engine_plugin", rule_engine_name},
-				{"instance_name", re_instance_name_},
+				{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 				{"log_message", "Could not add message to work queue."}
 			});
 			// clang-format on
@@ -455,7 +455,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			// clang-format off
 			log_re::trace({
 				{"rule_engine_plugin", rule_engine_name},
-				{"instance_name", re_instance_name_},
+				{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 				{"log_message", "Writing amqp message to test log."}
 			});
 			// clang-format on
@@ -465,7 +465,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				// clang-format off
 				log_re::error({
 					{"rule_engine_plugin", rule_engine_name},
-					{"instance_name", re_instance_name_},
+					{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 					{"log_message", "Error while writing to test log."}
 				});
 				// clang-format on
@@ -479,7 +479,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// clang-format off
 		log_re::trace({
 			{"rule_engine_plugin", rule_engine_name},
-			{"instance_name", re_instance_name_},
+			{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 			{"call", __PRETTY_FUNCTION__},
 		});
 		// clang-format on
@@ -506,6 +506,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// clang-format off
 		log_re::error({
 			{"rule_engine_plugin", rule_engine_name},
+			{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 			{"log_message", "AMQP server unexpectedly rejected message"}
 		});
 		// clang-format on
@@ -517,7 +518,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// clang-format off
 		log_re::error({
 			{"rule_engine_plugin", rule_engine_name},
-			{"instance_name", re_instance_name_},
+			{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 			{"log_message", "Transport error in proton messaging handler"},
 			{"error_condition::name", err_cond.name()},
 			{"error_condition::description", err_cond.description()},
@@ -532,7 +533,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// clang-format off
 		log_re::error({
 			{"rule_engine_plugin", rule_engine_name},
-			{"instance_name", re_instance_name_},
+			{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 			{"log_message", "Connection error in proton messaging handler"},
 			{"error_condition::name", err_cond.name()},
 			{"error_condition::description", err_cond.description()},
@@ -547,7 +548,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// clang-format off
 		log_re::error({
 			{"rule_engine_plugin", rule_engine_name},
-			{"instance_name", re_instance_name_},
+			{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 			{"log_message", "Session error in proton messaging handler"},
 			{"error_condition::name", err_cond.name()},
 			{"error_condition::description", err_cond.description()},
@@ -562,7 +563,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// clang-format off
 		log_re::error({
 			{"rule_engine_plugin", rule_engine_name},
-			{"instance_name", re_instance_name_},
+			{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 			{"log_message", "Sender error in proton messaging handler"},
 			{"error_condition::name", err_cond.name()},
 			{"error_condition::description", err_cond.description()},
@@ -576,7 +577,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// clang-format off
 		log_re::error({
 			{"rule_engine_plugin", rule_engine_name},
-			{"instance_name", re_instance_name_},
+			{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 			{"log_message", "Unknown error in proton messaging handler"},
 			{"error_condition::name", _err_cond.name()},
 			{"error_condition::description", _err_cond.description()},
@@ -591,7 +592,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// clang-format off
 		log_re::trace({
 			{"rule_engine_plugin", rule_engine_name},
-			{"instance_name", re_instance_name_},
+			{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 			{"call", __PRETTY_FUNCTION__},
 		});
 		// clang-format on
@@ -602,7 +603,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// clang-format off
 		log_re::trace({
 			{"rule_engine_plugin", rule_engine_name},
-			{"instance_name", re_instance_name_},
+			{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 			{"call", __PRETTY_FUNCTION__},
 		});
 		// clang-format on
@@ -613,7 +614,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// clang-format off
 		log_re::trace({
 			{"rule_engine_plugin", rule_engine_name},
-			{"instance_name", re_instance_name_},
+			{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 			{"call", __PRETTY_FUNCTION__},
 		});
 		// clang-format on
@@ -624,7 +625,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// clang-format off
 		log_re::trace({
 			{"rule_engine_plugin", rule_engine_name},
-			{"instance_name", re_instance_name_},
+			{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 			{"call", __PRETTY_FUNCTION__},
 		});
 		// clang-format on
@@ -635,7 +636,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// clang-format off
 		log_re::trace({
 			{"rule_engine_plugin", rule_engine_name},
-			{"instance_name", re_instance_name_},
+			{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 			{"call", __PRETTY_FUNCTION__},
 		});
 		// clang-format on
@@ -646,7 +647,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// clang-format off
 		log_re::trace({
 			{"rule_engine_plugin", rule_engine_name},
-			{"instance_name", re_instance_name_},
+			{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 			{"call", __PRETTY_FUNCTION__},
 		});
 		// clang-format on
@@ -657,7 +658,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// clang-format off
 		log_re::trace({
 			{"rule_engine_plugin", rule_engine_name},
-			{"instance_name", re_instance_name_},
+			{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 			{"call", __PRETTY_FUNCTION__},
 		});
 		// clang-format on
@@ -668,7 +669,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// clang-format off
 		log_re::trace({
 			{"rule_engine_plugin", rule_engine_name},
-			{"instance_name", re_instance_name_},
+			{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 			{"call", __PRETTY_FUNCTION__},
 		});
 		// clang-format on
@@ -679,7 +680,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// clang-format off
 		log_re::trace({
 			{"rule_engine_plugin", rule_engine_name},
-			{"instance_name", re_instance_name_},
+			{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 			{"call", __PRETTY_FUNCTION__},
 		});
 		// clang-format on
@@ -690,7 +691,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// clang-format off
 		log_re::trace({
 			{"rule_engine_plugin", rule_engine_name},
-			{"instance_name", re_instance_name_},
+			{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 			{"call", __PRETTY_FUNCTION__},
 		});
 		// clang-format on
@@ -701,7 +702,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// clang-format off
 		log_re::trace({
 			{"rule_engine_plugin", rule_engine_name},
-			{"instance_name", re_instance_name_},
+			{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 			{"call", __PRETTY_FUNCTION__},
 		});
 		// clang-format on
@@ -712,7 +713,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// clang-format off
 		log_re::trace({
 			{"rule_engine_plugin", rule_engine_name},
-			{"instance_name", re_instance_name_},
+			{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 			{"call", __PRETTY_FUNCTION__},
 		});
 		// clang-format on
@@ -723,7 +724,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// clang-format off
 		log_re::trace({
 			{"rule_engine_plugin", rule_engine_name},
-			{"instance_name", re_instance_name_},
+			{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 			{"call", __PRETTY_FUNCTION__},
 		});
 		// clang-format on
@@ -734,7 +735,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// clang-format off
 		log_re::trace({
 			{"rule_engine_plugin", rule_engine_name},
-			{"instance_name", re_instance_name_},
+			{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 			{"call", __PRETTY_FUNCTION__},
 		});
 		// clang-format on
@@ -745,7 +746,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// clang-format off
 		log_re::trace({
 			{"rule_engine_plugin", rule_engine_name},
-			{"instance_name", re_instance_name_},
+			{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 			{"call", __PRETTY_FUNCTION__},
 		});
 		// clang-format on
@@ -756,7 +757,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// clang-format off
 		log_re::trace({
 			{"rule_engine_plugin", rule_engine_name},
-			{"instance_name", re_instance_name_},
+			{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
 			{"call", __PRETTY_FUNCTION__},
 		});
 		// clang-format on

@@ -2,6 +2,7 @@
 #include "irods/private/amqp_config.hpp"
 #include "irods/private/audit_amqp_version.hpp"
 
+#include <irods/irods_configuration_keywords.hpp>
 #include <irods/irods_error.hpp>
 #include <irods/irods_version.h>
 #include <irods/rodsErrorTable.h>
@@ -65,7 +66,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 						// clang-format off
 						log_re::error({
 							{"rule_engine_plugin", rule_engine_name},
-							{"instance_name", _re_instance_name},
+							{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
 							{"log_message",
 							 fmt::format(FMT_COMPILE("AMQP endpoint port must not exceed {}."),
 							             std::numeric_limits<std::uint16_t>::max())},
@@ -144,7 +145,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				// clang-format off
 				log_re::error({
 					{"rule_engine_plugin", rule_engine_name},
-					{"instance_name", _re_instance_name},
+					{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
 					{"log_message", errmsg}
 				});
 				// clang-format on
@@ -155,7 +156,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			// clang-format off
 			log_re::warn({
 				{"rule_engine_plugin", rule_engine_name},
-				{"instance_name", _re_instance_name},
+				{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
 				{"log_message",
 				 fmt::format(FMT_COMPILE("Found {} configuration setting. This setting has been deprecated in favor "
 				                         "of {}, {}, and {} and will be ignored in future versions of the plugin."),
@@ -170,7 +171,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				// clang-format off
 				log_re::info({
 					{"rule_engine_plugin", rule_engine_name},
-					{"instance_name", _re_instance_name},
+					{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
 					{"log_message",
 					 fmt::format(FMT_COMPILE("Ignoring location from {} in favor of {}."),
 					             KW_DEPRECATED_LOCATION, KW_ENDPOINTS)},
@@ -184,7 +185,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					// clang-format off
 					log_re::error({
 						{"rule_engine_plugin", rule_engine_name},
-						{"instance_name", _re_instance_name},
+						{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
 						{"log_message", errmsg},
 						{KW_DEPRECATED_LOCATION, amqp_location},
 					});
@@ -216,7 +217,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					// clang-format off
 					log_re::info({
 						{"rule_engine_plugin", rule_engine_name},
-						{"instance_name", _re_instance_name},
+						{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
 						{"log_message",
 						 fmt::format(FMT_COMPILE("Ignoring credentials from {} in favor of {} and {}."),
 						             KW_DEPRECATED_LOCATION, KW_USER, KW_PASSWORD)},
@@ -231,7 +232,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 							// clang-format off
 							log_re::info({
 								{"rule_engine_plugin", rule_engine_name},
-								{"instance_name", _re_instance_name},
+								{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
 								{"log_message",
 								 fmt::format(FMT_COMPILE("Ignoring password from {} in favor of {}."),
 								             KW_DEPRECATED_LOCATION, KW_USER)},
@@ -274,7 +275,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				// clang-format off
 				log_re::info({
 					{"rule_engine_plugin", rule_engine_name},
-					{"instance_name", _re_instance_name},
+					{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
 					{"log_message",
 					 fmt::format(FMT_COMPILE("{} not present in rule engine configuration."), KW_PATH)},
 				});
@@ -285,7 +286,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			// clang-format off
 			log_re::warn({
 				{"rule_engine_plugin", rule_engine_name},
-				{"instance_name", _re_instance_name},
+				{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
 				{"log_message",
 				 fmt::format(FMT_COMPILE("Found {} configuration setting. This setting has been deprecated in favor "
 				                         "of {} and will be ignored in future versions of the plugin."),
@@ -297,7 +298,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				// clang-format off
 				log_re::info({
 					{"rule_engine_plugin", rule_engine_name},
-					{"instance_name", _re_instance_name},
+					{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
 					{"log_message",
 					 fmt::format(FMT_COMPILE("Ignoring {} in favor of {}."), KW_DEPRECATED_TOPIC, KW_PATH)},
 				});
@@ -367,7 +368,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					// clang-format off
 					log_re::error({
 						{"rule_engine_plugin", rule_engine_name},
-						{"instance_name", _re_instance_name},
+						{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
 						{"log_message",
 						 fmt::format(FMT_COMPILE("{} must be one of [VERIFY_PEER, ANONYMOUS_PEER, VERIFY_PEER_NAME]."),
 						             KW_SSL_VERIFY_MODE)},
@@ -399,7 +400,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				// clang-format off
 				log_re::warn({
 					{"rule_engine_plugin", rule_engine_name},
-					{"instance_name", _re_instance_name},
+					{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
 					{"log_message",
 					 fmt::format(FMT_COMPILE("Found {} but no {}. Ignoring {}."),
 					             KW_SSL_CERTDB_MAIN, KW_SSL_TRUST_DB, KW_SSL_CERTDB_MAIN)},
@@ -421,7 +422,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				// clang-format off
 				log_re::warn({
 					{"rule_engine_plugin", rule_engine_name},
-					{"instance_name", _re_instance_name},
+					{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
 					{"log_message",
 					 fmt::format(FMT_COMPILE("Found {} but no {}. Ignoring {}."),
 					             KW_SSL_CERTDB_EXTRA, KW_SSL_CERTDB_MAIN, KW_SSL_CERTDB_EXTRA)},
@@ -442,7 +443,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				// clang-format off
 				log_re::warn({
 					{"rule_engine_plugin", rule_engine_name},
-					{"instance_name", _re_instance_name},
+					{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
 					{"log_message",
 					 fmt::format(FMT_COMPILE("Found {} but no {}. Ignoring {}."),
 					             KW_SSL_CERT_PASSWORD, KW_SSL_CERTDB_EXTRA, KW_SSL_CERT_PASSWORD)},
@@ -511,7 +512,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				// clang-format off
 				log_re::error({
 					{"rule_engine_plugin", rule_engine_name},
-					{"instance_name", _re_instance_name},
+					{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
 					{"log_message",
 					 fmt::format(FMT_COMPILE("Max frame size must not exceed {}."),
 					             std::numeric_limits<std::uint32_t>::max())},
@@ -535,7 +536,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				// clang-format off
 				log_re::error({
 					{"rule_engine_plugin", rule_engine_name},
-					{"instance_name", _re_instance_name},
+					{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
 					{"log_message",
 					 fmt::format(FMT_COMPILE("Max sessions must not exceed {}."),
 					             std::numeric_limits<std::uint16_t>::max())},
@@ -559,7 +560,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				// clang-format off
 				log_re::error({
 					{"rule_engine_plugin", rule_engine_name},
-					{"instance_name", _re_instance_name},
+					{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
 					{"log_message",
 					 fmt::format(FMT_COMPILE("Idle timeout must not exceed {}."),
 					             std::numeric_limits<proton::duration::numeric_type>::max())},
@@ -592,7 +593,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				// clang-format off
 				log_re::error({
 					{"rule_engine_plugin", rule_engine_name},
-					{"instance_name", _re_instance_name},
+					{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
 					{"log_message",
 					 fmt::format(FMT_COMPILE("Connection open timeout must not exceed {}."),
 					             std::numeric_limits<std::chrono::milliseconds::rep>::max())},
@@ -618,7 +619,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				// clang-format off
 				log_re::error({
 					{"rule_engine_plugin", rule_engine_name},
-					{"instance_name", _re_instance_name},
+					{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
 					{"log_message",
 					 fmt::format(FMT_COMPILE("Connection close timeout must not exceed {}."),
 					             std::numeric_limits<std::chrono::milliseconds::rep>::max())},
@@ -643,7 +644,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				// clang-format off
 				log_re::error({
 					{"rule_engine_plugin", rule_engine_name},
-					{"instance_name", _re_instance_name},
+					{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
 					{"log_message",
 					 fmt::format(FMT_COMPILE("Base reconnect delay must not exceed {}."),
 					             std::numeric_limits<proton::duration::numeric_type>::max())},
@@ -677,7 +678,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				// clang-format off
 				log_re::error({
 					{"rule_engine_plugin", rule_engine_name},
-					{"instance_name", _re_instance_name},
+					{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
 					{"log_message",
 					 fmt::format(FMT_COMPILE("Max reconnect delay must not exceed {}."),
 					             std::numeric_limits<proton::duration::numeric_type>::max())},
@@ -702,7 +703,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				// clang-format off
 				log_re::error({
 					{"rule_engine_plugin", rule_engine_name},
-					{"instance_name", _re_instance_name},
+					{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
 					{"log_message",
 					 fmt::format(FMT_COMPILE("Max reconnect attempts must not exceed {}."),
 					             std::numeric_limits<int>::max())},
@@ -760,7 +761,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					// clang-format off
 					log_re::error({
 						{"rule_engine_plugin", rule_engine_name},
-						{"instance_name", _re_instance_name},
+						{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
 						{"log_message",
 						 fmt::format(FMT_COMPILE("{} must be one of [NONE, AT_MOST_ONCE, AT_LEAST_ONCE]."),
 						             KW_LINK_DELIVERY_MODE)},
@@ -792,7 +793,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					// clang-format off
 					log_re::error({
 						{"rule_engine_plugin", rule_engine_name},
-						{"instance_name", _re_instance_name},
+						{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
 						{"log_message",
 						 fmt::format(FMT_COMPILE("Sender close timeout must not exceed {}."),
 						             std::numeric_limits<std::chrono::milliseconds::rep>::max())},
@@ -866,7 +867,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 						// clang-format off
 						log_re::error({
 							{"rule_engine_plugin", rule_engine_name},
-							{"instance_name", _re_instance_name},
+							{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
 							{"log_message",
 							 fmt::format(FMT_COMPILE("{} must be one of [UNSPECIFIED, COPY, MOVE]."),
 							             KW_SOURCE_DISTRIBUTION_MODE)},
@@ -905,7 +906,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 						// clang-format off
 						log_re::error({
 							{"rule_engine_plugin", rule_engine_name},
-							{"instance_name", _re_instance_name},
+							{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
 							{"log_message",
 							 fmt::format(FMT_COMPILE("{} must be one of "
 							                         "[NONDURABLE, CONFIGURATION, UNSETTLED_STATE, DELIVERIES]."),
@@ -934,7 +935,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 						// clang-format off
 						log_re::error({
 							{"rule_engine_plugin", rule_engine_name},
-							{"instance_name", _re_instance_name},
+							{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
 							{"log_message",
 							 fmt::format(FMT_COMPILE("Sender source timeout must not exceed {}."),
 							             std::numeric_limits<proton::duration::numeric_type>::max())},
@@ -972,7 +973,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 						// clang-format off
 						log_re::error({
 							{"rule_engine_plugin", rule_engine_name},
-							{"instance_name", _re_instance_name},
+							{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
 							{"log_message",
 							 fmt::format(FMT_COMPILE("{} must be one of "
 							                         "[LINK_CLOSE, SESSION_CLOSE, CONNECTION_CLOSE, NEVER]."),
@@ -1049,7 +1050,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 						// clang-format off
 						log_re::error({
 							{"rule_engine_plugin", rule_engine_name},
-							{"instance_name", _re_instance_name},
+							{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
 							{"log_message",
 							 fmt::format(FMT_COMPILE("{} must be one of "
 							                         "[NONDURABLE, CONFIGURATION, UNSETTLED_STATE, DELIVERIES]."),
@@ -1078,7 +1079,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 						// clang-format off
 						log_re::error({
 							{"rule_engine_plugin", rule_engine_name},
-							{"instance_name", _re_instance_name},
+							{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
 							{"log_message",
 							 fmt::format(FMT_COMPILE("Sender target timeout must not exceed {}."),
 							             std::numeric_limits<proton::duration::numeric_type>::max())},
@@ -1116,7 +1117,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 						// clang-format off
 						log_re::error({
 							{"rule_engine_plugin", rule_engine_name},
-							{"instance_name", _re_instance_name},
+							{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
 							{"log_message",
 							 fmt::format(FMT_COMPILE("{} must be one of "
 							                         "[LINK_CLOSE, SESSION_CLOSE, CONNECTION_CLOSE, NEVER]."),
@@ -1159,7 +1160,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				// clang-format off
 				log_re::error({
 					{"rule_engine_plugin", rule_engine_name},
-					{"instance_name", _re_instance_name},
+					{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
 					{"log_message",
 					 fmt::format(FMT_COMPILE("Message send timeout must not exceed {}."),
 					             std::numeric_limits<std::chrono::milliseconds::rep>::max())},
@@ -1185,7 +1186,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				// clang-format off
 				log_re::error({
 					{"rule_engine_plugin", rule_engine_name},
-					{"instance_name", _re_instance_name},
+					{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
 					{"log_message",
 					 fmt::format(FMT_COMPILE("Session close timeout must not exceed {}."),
 					             std::numeric_limits<std::chrono::milliseconds::rep>::max())},
@@ -1206,7 +1207,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			// clang-format off
 			log_re::warn({
 				{"rule_engine_plugin", rule_engine_name},
-				{"instance_name", _re_instance_name},
+				{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
 				{"log_message",
 				 fmt::format(FMT_COMPILE("Found {} configuration setting. This setting is no longer used and should "
 				                         "be removed from the plugin configuration."),

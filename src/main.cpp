@@ -3,6 +3,7 @@
 #include "irods/private/audit_config.hpp"
 #include "irods/private/amqp_sender.hpp"
 
+#include <irods/irods_configuration_keywords.hpp>
 #include <irods/irods_error.hpp>
 #include <irods/irods_exception.hpp>
 #include <irods/irods_logger.hpp>
@@ -76,7 +77,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			// clang-format off
 			_logger({
 				{"rule_engine_plugin", rule_engine_name},
-				{"instance_name", _instance_name},
+				{irods::KW_CFG_INSTANCE_NAME, _instance_name},
 				{"log_file_path", _test_mode_log_path},
 				{"log_message", _log_message},
 			});
@@ -91,7 +92,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			// clang-format off
 			_logger({
 				{"rule_engine_plugin", rule_engine_name},
-				{"instance_name", _instance_name},
+				{irods::KW_CFG_INSTANCE_NAME, _instance_name},
 				{"log_message", _log_message},
 			});
 			// clang-format on
@@ -105,7 +106,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// clang-format off
 		log_re::debug({
 			{"rule_engine_plugin", rule_engine_name},
-			{"instance_name", _instance_name},
+			{irods::KW_CFG_INSTANCE_NAME, _instance_name},
 			{"log_message", "setup called"},
 		});
 		// clang-format on
@@ -118,7 +119,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			// clang-format off
 			log_re::error({
 				{"rule_engine_plugin", rule_engine_name},
-				{"instance_name", _instance_name},
+				{irods::KW_CFG_INSTANCE_NAME, _instance_name},
 				{"log_message", "Error loading plugin configuration"},
 				{"error_result", ret.result()},
 			});
@@ -132,7 +133,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			// clang-format off
 			log_re::error({
 				{"rule_engine_plugin", rule_engine_name},
-				{"instance_name", _instance_name},
+				{irods::KW_CFG_INSTANCE_NAME, _instance_name},
 				{"log_message", "Error establishing AMQP connection"},
 				{"error_result", ret.result()},
 			});
@@ -151,7 +152,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// clang-format off
 		log_re::debug({
 			{"rule_engine_plugin", rule_engine_name},
-			{"instance_name", _instance_name},
+			{irods::KW_CFG_INSTANCE_NAME, _instance_name},
 			{"log_message", "teardown called"},
 		});
 		// clang-format on
@@ -165,7 +166,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// clang-format off
 		log_re::debug({
 			{"rule_engine_plugin", rule_engine_name},
-			{"instance_name", _instance_name},
+			{irods::KW_CFG_INSTANCE_NAME, _instance_name},
 			{"log_message", "start called"},
 		});
 		// clang-format on
@@ -182,7 +183,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				// clang-format off
 				log_re::error({
 					{"rule_engine_plugin", rule_engine_name},
-					{"instance_name", _instance_name},
+					{irods::KW_CFG_INSTANCE_NAME, _instance_name},
 					{"log_message", "Error establishing AMQP connection"},
 					{"error_result", ret.result()},
 				});
@@ -269,7 +270,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			// clang-format off
 			log_re::error({
 				{"rule_engine_plugin", rule_engine_name},
-				{"instance_name", _instance_name},
+				{irods::KW_CFG_INSTANCE_NAME, _instance_name},
 				{"log_message", "Caught unknown exception"}
 			});
 			// clang-format on
@@ -285,7 +286,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// clang-format off
 		log_re::debug({
 			{"rule_engine_plugin", rule_engine_name},
-			{"instance_name", _instance_name},
+			{irods::KW_CFG_INSTANCE_NAME, _instance_name},
 			{"log_message", "stop called"},
 		});
 		// clang-format on
@@ -323,7 +324,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			// clang-format off
 			log_re::error({
 				{"rule_engine_plugin", rule_engine_name},
-				{"instance_name", _instance_name},
+				{irods::KW_CFG_INSTANCE_NAME, _instance_name},
 				{"log_message", "Caught unknown exception"}
 			});
 			// clang-format on
@@ -335,7 +336,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			// clang-format off
 			log_re::error({
 				{"rule_engine_plugin", rule_engine_name},
-				{"instance_name", _instance_name},
+				{irods::KW_CFG_INSTANCE_NAME, _instance_name},
 				{"log_message", "Error closing log_file_ofstream."}
 			});
 			// clang-format on
@@ -380,7 +381,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// clang-format off
 		log_re::debug({
 			{"rule_engine_plugin", rule_engine_name},
-			{"instance_name", _instance_name},
+			{irods::KW_CFG_INSTANCE_NAME, _instance_name},
 			{"log_message", "exec_rule called"},
 		});
 		// clang-format on
@@ -394,7 +395,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			// clang-format off
 			log_re::trace({
 				{"rule_engine_plugin", rule_engine_name},
-				{"instance_name", _instance_name},
+				{irods::KW_CFG_INSTANCE_NAME, _instance_name},
 				{"rule_name", _rn},
 				{"log_message", "Could not get rule execution context (REI)"},
 				{"error_result", err.result()}
@@ -417,7 +418,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					// clang-format off
 					log_re::trace({
 						{"rule_engine_plugin", rule_engine_name},
-						{"instance_name", _instance_name},
+						{irods::KW_CFG_INSTANCE_NAME, _instance_name},
 						{"rule_name", _rn},
 						{"log_message", "Skipping serialization of BytesBuf parameter"}
 					});
@@ -432,7 +433,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					// clang-format off
 					log_re::error({
 						{"rule_engine_plugin", rule_engine_name},
-						{"instance_name", _instance_name},
+						{irods::KW_CFG_INSTANCE_NAME, _instance_name},
 						{"rule_name", _rn},
 						{"log_message", "Failed to serialize argument"},
 						{"error_result", ret.result()}
@@ -480,7 +481,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			// clang-format off
 			log_re::error({
 				{"rule_engine_plugin", rule_engine_name},
-				{"instance_name", _instance_name},
+				{irods::KW_CFG_INSTANCE_NAME, _instance_name},
 				{"rule_name", _rn},
 				{"log_message", "Caught unknown exception"}
 			});

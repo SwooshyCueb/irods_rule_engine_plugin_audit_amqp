@@ -1,6 +1,7 @@
 #ifndef IRODS_AUDIT_AMQP_MAIN_HPP
 #define IRODS_AUDIT_AMQP_MAIN_HPP
 
+#include <irods/irods_configuration_keywords.hpp>
 #include <irods/irods_logger.hpp>
 
 #include <chrono>
@@ -31,7 +32,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// clang-format off
 		_logger({
 			{"rule_engine_plugin", rule_engine_name},
-			{"instance_name", _instance_name},
+			{irods::KW_CFG_INSTANCE_NAME, _instance_name},
 			{"rule_name", _rule_name},
 			{"log_message", _log_message},
 			{"exception", _e_what},
@@ -48,7 +49,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// clang-format off
 		_logger({
 			{"rule_engine_plugin", rule_engine_name},
-			{"instance_name", _instance_name},
+			{irods::KW_CFG_INSTANCE_NAME, _instance_name},
 			{"log_message", _log_message},
 			{"exception", _e_what},
 		});
