@@ -61,7 +61,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 				const auto port_cfg = endpoint_cfg.find(KW_ENDPOINT_PORT);
 				if ((port_cfg != endpoint_cfg.end()) && !port_cfg->is_null()) {
-					const auto& port = port_cfg->get_ref<const nlohmann::json::number_unsigned_t&>();
+					const auto port = port_cfg->get<nlohmann::json::number_unsigned_t>();
 					if (port > std::numeric_limits<std::uint16_t>::max()) {
 						// clang-format off
 						log_re::error({
@@ -507,7 +507,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			connection_max_frame_size_ = defaults::connection_max_frame_size;
 		}
 		else if (!max_frame_size_cfg->is_null()) {
-			const auto& max_frame_size = max_frame_size_cfg->get_ref<const nlohmann::json::number_unsigned_t&>();
+			const auto max_frame_size = max_frame_size_cfg->get<nlohmann::json::number_unsigned_t>();
 			if (max_frame_size > std::numeric_limits<std::uint32_t>::max()) {
 				// clang-format off
 				log_re::error({
@@ -531,7 +531,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			connection_max_sessions_ = defaults::connection_max_sessions;
 		}
 		else if (!max_sessions_cfg->is_null()) {
-			const auto& max_sessions = max_sessions_cfg->get_ref<const nlohmann::json::number_unsigned_t&>();
+			const auto max_sessions = max_sessions_cfg->get<nlohmann::json::number_unsigned_t>();
 			if (max_sessions > std::numeric_limits<std::uint16_t>::max()) {
 				// clang-format off
 				log_re::error({
@@ -555,7 +555,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			connection_idle_timeout_ = defaults::connection_idle_timeout;
 		}
 		else if (!idle_timeout_cfg->is_null()) {
-			const auto& idle_timeout = idle_timeout_cfg->get_ref<const nlohmann::json::number_unsigned_t&>();
+			const auto idle_timeout = idle_timeout_cfg->get<nlohmann::json::number_unsigned_t>();
 			if (idle_timeout > std::numeric_limits<proton::duration::numeric_type>::max()) {
 				// clang-format off
 				log_re::error({
@@ -587,8 +587,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			connection_open_timeout_ = defaults::connection_open_timeout;
 		}
 		else if (!connection_open_timeout_cfg->is_null()) {
-			const auto& connection_open_timeout =
-				connection_open_timeout_cfg->get_ref<const nlohmann::json::number_unsigned_t&>();
+			const auto connection_open_timeout = connection_open_timeout_cfg->get<nlohmann::json::number_unsigned_t>();
 			if (connection_open_timeout > std::numeric_limits<std::chrono::milliseconds::rep>::max()) {
 				// clang-format off
 				log_re::error({
@@ -613,8 +612,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 			connection_close_timeout_ = defaults::connection_close_timeout;
 		}
 		else if (!connection_close_timeout_cfg->is_null()) {
-			const auto& connection_close_timeout =
-				connection_close_timeout_cfg->get_ref<const nlohmann::json::number_unsigned_t&>();
+			const auto connection_close_timeout =
+				connection_close_timeout_cfg->get<nlohmann::json::number_unsigned_t>();
 			if (connection_close_timeout > std::numeric_limits<std::chrono::milliseconds::rep>::max()) {
 				// clang-format off
 				log_re::error({
@@ -639,7 +638,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			reconnect_delay_ = defaults::reconnect_delay;
 		}
 		else if (!reconnect_delay_cfg->is_null()) {
-			const auto& reconnect_delay = reconnect_delay_cfg->get_ref<const nlohmann::json::number_unsigned_t&>();
+			const auto reconnect_delay = reconnect_delay_cfg->get<nlohmann::json::number_unsigned_t>();
 			if (reconnect_delay > std::numeric_limits<proton::duration::numeric_type>::max()) {
 				// clang-format off
 				log_re::error({
@@ -664,7 +663,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		}
 		else if (!reconnect_delay_multiplier_cfg->is_null()) {
 			reconnect_delay_multiplier_ =
-				static_cast<float>(reconnect_delay_multiplier_cfg->get_ref<const nlohmann::json::number_float_t&>());
+				static_cast<float>(reconnect_delay_multiplier_cfg->get<nlohmann::json::number_float_t>());
 		}
 
 		const auto reconnect_max_delay_cfg = _plugin_specific_configuration.find(KW_RECONNECT_MAX_DELAY);
@@ -672,8 +671,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			reconnect_max_delay_ = defaults::reconnect_max_delay;
 		}
 		else if (!reconnect_max_delay_cfg->is_null()) {
-			const auto& reconnect_max_delay =
-				reconnect_max_delay_cfg->get_ref<const nlohmann::json::number_unsigned_t&>();
+			const auto reconnect_max_delay = reconnect_max_delay_cfg->get<nlohmann::json::number_unsigned_t>();
 			if (reconnect_max_delay > std::numeric_limits<proton::duration::numeric_type>::max()) {
 				// clang-format off
 				log_re::error({
@@ -697,8 +695,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			reconnect_max_attempts_ = defaults::reconnect_max_attempts;
 		}
 		else if (!reconnect_max_attempts_cfg->is_null()) {
-			const auto& reconnect_max_attempts =
-				reconnect_max_attempts_cfg->get_ref<const nlohmann::json::number_unsigned_t&>();
+			const auto reconnect_max_attempts = reconnect_max_attempts_cfg->get<nlohmann::json::number_unsigned_t>();
 			if (reconnect_max_attempts > std::numeric_limits<int>::max()) {
 				// clang-format off
 				log_re::error({
@@ -787,8 +784,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				sender_close_timeout_ = defaults::sender_close_timeout;
 			}
 			else if (!sender_close_timeout_cfg->is_null()) {
-				const auto& sender_close_timeout =
-					sender_close_timeout_cfg->get_ref<const nlohmann::json::number_unsigned_t&>();
+				const auto sender_close_timeout = sender_close_timeout_cfg->get<nlohmann::json::number_unsigned_t>();
 				if (sender_close_timeout > std::numeric_limits<std::chrono::milliseconds::rep>::max()) {
 					// clang-format off
 					log_re::error({
@@ -929,8 +925,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					sender_source_timeout_ = defaults::sender_source_timeout;
 				}
 				else if (!source_timeout_cfg->is_null()) {
-					const auto& source_timeout =
-						source_timeout_cfg->get_ref<const nlohmann::json::number_unsigned_t&>();
+					const auto source_timeout = source_timeout_cfg->get<nlohmann::json::number_unsigned_t>();
 					if (source_timeout > std::numeric_limits<proton::duration::numeric_type>::max()) {
 						// clang-format off
 						log_re::error({
@@ -1073,8 +1068,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					sender_target_timeout_ = defaults::sender_target_timeout;
 				}
 				else if (!target_timeout_cfg->is_null()) {
-					const auto& target_timeout =
-						target_timeout_cfg->get_ref<const nlohmann::json::number_unsigned_t&>();
+					const auto target_timeout = target_timeout_cfg->get<nlohmann::json::number_unsigned_t>();
 					if (target_timeout > std::numeric_limits<proton::duration::numeric_type>::max()) {
 						// clang-format off
 						log_re::error({
@@ -1154,8 +1148,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			message_send_timeout_ = defaults::message_send_timeout;
 		}
 		else if (!message_send_timeout_cfg->is_null()) {
-			const auto& message_send_timeout =
-				message_send_timeout_cfg->get_ref<const nlohmann::json::number_unsigned_t&>();
+			const auto message_send_timeout = message_send_timeout_cfg->get<nlohmann::json::number_unsigned_t>();
 			if (message_send_timeout > std::numeric_limits<std::chrono::milliseconds::rep>::max()) {
 				// clang-format off
 				log_re::error({
@@ -1180,8 +1173,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			session_close_timeout_ = defaults::session_close_timeout;
 		}
 		else if (!session_close_timeout_cfg->is_null()) {
-			const auto& session_close_timeout =
-				session_close_timeout_cfg->get_ref<const nlohmann::json::number_unsigned_t&>();
+			const auto session_close_timeout = session_close_timeout_cfg->get<nlohmann::json::number_unsigned_t>();
 			if (session_close_timeout > std::numeric_limits<std::chrono::milliseconds::rep>::max()) {
 				// clang-format off
 				log_re::error({
