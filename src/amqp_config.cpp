@@ -47,7 +47,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		bool found_endpoint = false;
 		const auto amqp_endpoints_cfg = _plugin_specific_configuration.find(KW_ENDPOINTS);
 		if (amqp_endpoints_cfg != _plugin_specific_configuration.end()) {
-			const auto& endpoints_cfg = *amqp_endpoints_cfg;
+			const auto& endpoints_cfg = amqp_endpoints_cfg->get_ref<const nlohmann::json::array_t&>();
 			for (const auto& endpoint_cfg : endpoints_cfg) {
 				std::stringstream endpoint_ss;
 
@@ -83,8 +83,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 				bool found_endpoint_params = false;
 				const auto endpoint_params_cfg = endpoint_cfg.find(KW_ENDPOINT_PARAMETERS);
 				if ((endpoint_params_cfg != endpoint_cfg.end()) && !endpoint_params_cfg->is_null()) {
-					const auto& endpoint_params = *endpoint_params_cfg;
-					for (const auto& [ep_key, ep_val] : endpoint_params.items()) {
+					const auto& endpoint_params = endpoint_params_cfg->get_ref<const nlohmann::json::object_t&>();
+					for (const auto& [ep_key, ep_val] : endpoint_params) {
 						if (found_endpoint_params) {
 							endpoint_ss << '&' << ep_key;
 						}
@@ -104,8 +104,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 				const auto endpoint_frag_cfg = endpoint_cfg.find(KW_ENDPOINT_FRAGMENT);
 				if ((endpoint_frag_cfg != endpoint_cfg.end()) && !endpoint_frag_cfg->is_null()) {
-					const auto& endpoint_frag = *endpoint_frag_cfg;
-					endpoint_ss << '#' << endpoint_frag.get_ref<const std::string&>();
+					endpoint_ss << '#' << endpoint_frag_cfg->get_ref<const std::string&>();
 				}
 
 				if (found_endpoint) {
@@ -317,8 +316,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 		bool found_path_params = false;
 		const auto path_params_cfg = _plugin_specific_configuration.find(KW_PATH_PARAMETERS);
 		if ((path_params_cfg != _plugin_specific_configuration.end()) && !path_params_cfg->is_null()) {
-			const auto& path_params = *path_params_cfg;
-			for (const auto& [pp_key, pp_val] : path_params.items()) {
+			const auto& path_params = path_params_cfg->get_ref<const nlohmann::json::object_t&>();
+			for (const auto& [pp_key, pp_val] : path_params) {
 				path_ss << (found_path_params ? '&' : '?') << pp_key;
 
 				found_path_params = true;
@@ -333,8 +332,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 		const auto path_frag_cfg = _plugin_specific_configuration.find(KW_PATH_FRAGMENT);
 		if ((path_frag_cfg != _plugin_specific_configuration.end()) && !path_frag_cfg->is_null()) {
-			const auto& path_frag = *path_frag_cfg;
-			path_ss << '#' << path_frag.get_ref<const std::string&>();
+			path_ss << '#' << path_frag_cfg->get_ref<const std::string&>();
 		}
 
 		path_ = path_ss.str();
