@@ -260,7 +260,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		bool found_path = false;
 		std::stringstream path_ss;
 		const auto amqp_path_cfg = _plugin_specific_configuration.find(KW_PATH);
-		if (amqp_path_cfg != _plugin_specific_configuration.end()) {
+		if ((amqp_path_cfg != _plugin_specific_configuration.end()) && !amqp_path_cfg->is_null()) {
 			const auto& amqp_path_str = amqp_path_cfg->get_ref<const std::string&>();
 			if (!amqp_path_str.empty()) {
 				path_ss << '/' << amqp_path_str;
@@ -272,14 +272,16 @@ namespace irods::plugin::rule_engine::audit_amqp
 		const auto amqp_topic_cfg = _plugin_specific_configuration.find(KW_DEPRECATED_TOPIC);
 		if (amqp_topic_cfg == _plugin_specific_configuration.end()) {
 			if (!found_path) {
+				const std::string& errmsg =
+					fmt::format(FMT_COMPILE("{} not present in rule engine configuration."), KW_PATH);
 				// clang-format off
-				log_re::info({
+				log_re::error({
 					{"rule_engine_plugin", rule_engine_name},
 					{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
-					{"log_message",
-					 fmt::format(FMT_COMPILE("{} not present in rule engine configuration."), KW_PATH)},
+					{"log_message", errmsg},
 				});
 				// clang-format on
+				return ERROR(CONFIGURATION_ERROR, errmsg);
 			}
 		}
 		else {
