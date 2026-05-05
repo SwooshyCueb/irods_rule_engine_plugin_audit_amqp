@@ -37,8 +37,28 @@ namespace irods::plugin::rule_engine::audit_amqp
 	irods::error plugin_config::load_configuration(const nlohmann::json& _plugin_specific_configuration,
 	                                               const std::string& _re_instance_name)
 	{
-		const auto& new_pep_regex =
-			_plugin_specific_configuration.at(KW_PEP_REGEX).get_ref<const std::string&>();
+		const auto& new_pep_regex_str = _plugin_specific_configuration.at(KW_PEP_REGEX).get_ref<const std::string&>();
+
+		std::regex new_pep_regex;
+		try {
+			new_pep_regex = std::regex(new_pep_regex_str, pep_regex_flags_);
+		}
+		catch (const std::regex_error& e) {
+			if (is_configured_) {
+				is_old_config_ = true;
+			}
+			// clang-format off
+			log_re::error({
+				{"rule_engine_plugin", rule_engine_name},
+				{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
+				{"log_message", "Failed to compile pep regex"},
+				{"std::regex_error.what()", e.what()},
+				{"std::regex_error.code()", std::to_string(e.code())},
+				{KW_PEP_REGEX, new_pep_regex_str}
+			});
+			// clang-format on
+			return ERROR(INVALID_REGEXP, "Failed to compile pep regex");
+		}
 
 		class amqp_config new_amqp_config;
 		irods::error res = new_amqp_config.initialize(_plugin_specific_configuration, _re_instance_name);
@@ -73,7 +93,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			new_test_mode_log_path_prefix = log_path_prefix_cfg->get_ref<const std::string&>();
 		}
 
-		pep_regex_ = std::regex(new_pep_regex, pep_regex_flags_);
+		pep_regex_ = new_pep_regex;
 		test_mode_enabled_ = new_test_mode_enabled;
 		test_mode_log_path_prefix_ = new_test_mode_log_path_prefix;
 		amqp_config_ = new_amqp_config;
