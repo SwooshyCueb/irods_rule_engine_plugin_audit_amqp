@@ -156,7 +156,18 @@ namespace irods::plugin::rule_engine::audit_amqp
 			if (is_configured_) {
 				is_old_config_ = true;
 			}
-			return ERROR(SYS_LIBRARY_ERROR, e.what());
+			IRODS_ERROR_ENUM errcode = SYS_LIBRARY_ERROR;
+			// For what these values mean, see https://json.nlohmann.me/home/exceptions/
+			if (((302 <= e.id) && (e.id <= 312)) || (e.id == 314)) {
+				errcode = KEY_TYPE_MISMATCH;
+			}
+			else if ((e.id == 403) || (e.id == 404)) {
+				errcode = KEY_NOT_FOUND;
+			}
+			else if (e.id == 406) {
+				errcode = SYS_CONFIG_FILE_ERR;
+			}
+			return ERROR(errcode, e.what());
 		}
 		catch (const std::exception& e) {
 			if (is_configured_) {
