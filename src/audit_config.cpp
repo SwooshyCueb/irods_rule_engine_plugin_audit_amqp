@@ -136,6 +136,12 @@ namespace irods::plugin::rule_engine::audit_amqp
 					}
 					return ERROR(KEY_NOT_FOUND, "Failed to find plugin-specific configuration");
 				}
+				if (!plugin_spec_cfg->is_object()) {
+					if (is_configured_) {
+						is_old_config_ = true;
+					}
+					return ERROR(KEY_TYPE_MISMATCH, "Invalid plugin-specific configuration type");
+				}
 
 				return initialize(*plugin_spec_cfg, _re_instance_name);
 			}

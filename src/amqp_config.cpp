@@ -49,6 +49,19 @@ namespace irods::plugin::rule_engine::audit_amqp
 		if (amqp_endpoints_cfg != _plugin_specific_configuration.end()) {
 			const auto& endpoints_cfg = amqp_endpoints_cfg->get_ref<const nlohmann::json::array_t&>();
 			for (const auto& endpoint_cfg : endpoints_cfg) {
+				if (!endpoint_cfg.is_object()) {
+					const std::string& errmsg =
+						fmt::format(FMT_COMPILE("One or more {} entries is invalid type."), KW_ENDPOINTS);
+					// clang-format off
+					log_re::error({
+						{"rule_engine_plugin", rule_engine_name},
+						{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
+						{"log_message", errmsg},
+					});
+					// clang-format on
+					return ERROR(KEY_TYPE_MISMATCH, errmsg);
+				}
+
 				std::stringstream endpoint_ss;
 
 				const auto scheme_cfg = endpoint_cfg.find(KW_ENDPOINT_SCHEME);
@@ -345,6 +358,17 @@ namespace irods::plugin::rule_engine::audit_amqp
 			ssl_certdb_extra_ = defaults::ssl_certdb_extra;
 			ssl_cert_password_ = defaults::ssl_cert_password;
 		}
+		else if (!amqp_ssl_cfg->is_object()) {
+			const std::string& errmsg = fmt::format(FMT_COMPILE("{} is invalid type."), KW_SSL);
+			// clang-format off
+			log_re::error({
+				{"rule_engine_plugin", rule_engine_name},
+				{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
+				{"log_message", errmsg},
+			});
+			// clang-format on
+			return ERROR(KEY_TYPE_MISMATCH, errmsg);
+		}
 		else {
 			const auto& ssl_cfg = *amqp_ssl_cfg;
 
@@ -460,6 +484,17 @@ namespace irods::plugin::rule_engine::audit_amqp
 			sasl_enabled_ = defaults::sasl_enabled;
 			sasl_mechanisms_ = defaults::sasl_mechanisms;
 			sasl_allow_insecure_ = defaults::sasl_allow_insecure;
+		}
+		else if (!amqp_sasl_cfg->is_object()) {
+			const std::string& errmsg = fmt::format(FMT_COMPILE("{} is invalid type."), KW_SASL);
+			// clang-format off
+			log_re::error({
+				{"rule_engine_plugin", rule_engine_name},
+				{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
+				{"log_message", errmsg},
+			});
+			// clang-format on
+			return ERROR(KEY_TYPE_MISMATCH, errmsg);
 		}
 		else {
 			const auto& sasl_cfg = *amqp_sasl_cfg;
@@ -735,6 +770,17 @@ namespace irods::plugin::rule_engine::audit_amqp
 			sender_target_timeout_ = defaults::sender_target_timeout;
 			sender_target_expiry_policy_ = defaults::sender_target_expiry_policy;
 		}
+		else if (!amqp_sender_cfg->is_object()) {
+			const std::string& errmsg = fmt::format(FMT_COMPILE("{} is invalid type."), KW_SENDER);
+			// clang-format off
+			log_re::error({
+				{"rule_engine_plugin", rule_engine_name},
+				{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
+				{"log_message", errmsg},
+			});
+			// clang-format on
+			return ERROR(KEY_TYPE_MISMATCH, errmsg);
+		}
 		else {
 			const auto& sender_cfg = *amqp_sender_cfg;
 
@@ -814,6 +860,18 @@ namespace irods::plugin::rule_engine::audit_amqp
 				sender_source_durability_mode_ = defaults::sender_source_durability_mode;
 				sender_source_timeout_ = defaults::sender_source_timeout;
 				sender_source_expiry_policy_ = defaults::sender_source_expiry_policy;
+			}
+			else if (!amqp_sender_source_cfg->is_object()) {
+				const std::string& errmsg =
+					fmt::format(FMT_COMPILE("{}:{} is invalid type."), KW_SENDER, KW_LINK_SOURCE);
+				// clang-format off
+				log_re::error({
+					{"rule_engine_plugin", rule_engine_name},
+					{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
+					{"log_message", errmsg},
+				});
+				// clang-format on
+				return ERROR(KEY_TYPE_MISMATCH, errmsg);
 			}
 			else {
 				const auto& sender_source_cfg = *amqp_sender_source_cfg;
@@ -995,6 +1053,18 @@ namespace irods::plugin::rule_engine::audit_amqp
 				sender_target_durability_mode_ = defaults::sender_target_durability_mode;
 				sender_target_timeout_ = defaults::sender_target_timeout;
 				sender_target_expiry_policy_ = defaults::sender_target_expiry_policy;
+			}
+			else if (!amqp_sender_target_cfg->is_object()) {
+				const std::string& errmsg =
+					fmt::format(FMT_COMPILE("{}:{} is invalid type."), KW_SENDER, KW_LINK_TARGET);
+				// clang-format off
+				log_re::error({
+					{"rule_engine_plugin", rule_engine_name},
+					{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
+					{"log_message", errmsg},
+				});
+				// clang-format on
+				return ERROR(KEY_TYPE_MISMATCH, errmsg);
 			}
 			else {
 				const auto& sender_target_cfg = *amqp_sender_target_cfg;
