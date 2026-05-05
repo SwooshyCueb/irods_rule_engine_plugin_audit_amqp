@@ -73,7 +73,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 							{KW_ENDPOINT_PORT, std::to_string(port)}
 						});
 						// clang-format on
-						return ERROR(CONFIGURATION_ERROR,
+						return ERROR(SYS_CONFIG_FILE_ERR,
 						             fmt::format(FMT_COMPILE("AMQP endpoint port greater than {}."),
 						                         std::numeric_limits<std::uint16_t>::max()));
 					}
@@ -148,7 +148,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					{"log_message", errmsg}
 				});
 				// clang-format on
-				return ERROR(CONFIGURATION_ERROR, errmsg);
+				return ERROR(KEY_NOT_FOUND, errmsg);
 			}
 		}
 		else {
@@ -189,7 +189,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 						{KW_DEPRECATED_LOCATION, amqp_location},
 					});
 					// clang-format on
-					return ERROR(CONFIGURATION_ERROR, errmsg);
+					return ERROR(SYS_CONFIG_FILE_ERR, errmsg);
 				}
 
 				std::stringstream endpoint_ss;
@@ -280,7 +280,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					{"log_message", errmsg},
 				});
 				// clang-format on
-				return ERROR(CONFIGURATION_ERROR, errmsg);
+				return ERROR(KEY_NOT_FOUND, errmsg);
 			}
 		}
 		else {
@@ -375,7 +375,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 						{fmt::format(FMT_COMPILE("{}:{}"), KW_SSL, KW_SSL_VERIFY_MODE), ssl_verify_mode},
 					});
 					// clang-format on
-					return ERROR(CONFIGURATION_ERROR,
+					return ERROR(SYS_CONFIG_FILE_ERR,
 					             fmt::format(FMT_COMPILE("Unrecognized {}:{} value."), KW_SSL, KW_SSL_VERIFY_MODE));
 				}
 			}
@@ -519,7 +519,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					{KW_CONNECTION_MAX_FRAME_SIZE, std::to_string(max_frame_size)}
 				});
 				// clang-format on
-				return ERROR(CONFIGURATION_ERROR,
+				return ERROR(SYS_CONFIG_FILE_ERR,
 				             fmt::format(FMT_COMPILE("Max frame size greater than {}."),
 				                         std::numeric_limits<std::uint32_t>::max()));
 			}
@@ -543,7 +543,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					{KW_CONNECTION_MAX_SESSIONS, std::to_string(max_sessions)}
 				});
 				// clang-format on
-				return ERROR(CONFIGURATION_ERROR,
+				return ERROR(SYS_CONFIG_FILE_ERR,
 				             fmt::format(FMT_COMPILE("Max sessions greater than {}."),
 				                         std::numeric_limits<std::uint16_t>::max()));
 			}
@@ -567,7 +567,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					{KW_CONNECTION_IDLE_TIMEOUT, std::to_string(idle_timeout)}
 				});
 				// clang-format on
-				return ERROR(CONFIGURATION_ERROR,
+				return ERROR(SYS_CONFIG_FILE_ERR,
 				             fmt::format(FMT_COMPILE("Idle timeout greater than {}."),
 				                         std::numeric_limits<proton::duration::numeric_type>::max()));
 			}
@@ -599,7 +599,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					{KW_CONNECTION_OPEN_TIMEOUT, std::to_string(connection_open_timeout)}
 				});
 				// clang-format on
-				return ERROR(CONFIGURATION_ERROR,
+				return ERROR(SYS_CONFIG_FILE_ERR,
 				             fmt::format(FMT_COMPILE("Connection open timeout greater than {}."),
 				                         std::numeric_limits<std::chrono::milliseconds::rep>::max()));
 			}
@@ -625,7 +625,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					{KW_CONNECTION_CLOSE_TIMEOUT, std::to_string(connection_close_timeout)}
 				});
 				// clang-format on
-				return ERROR(CONFIGURATION_ERROR,
+				return ERROR(SYS_CONFIG_FILE_ERR,
 				             fmt::format(FMT_COMPILE("Connection close timeout greater than {}."),
 				                         std::numeric_limits<std::chrono::milliseconds::rep>::max()));
 			}
@@ -650,7 +650,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					{KW_RECONNECT_BASE_DELAY, std::to_string(reconnect_delay)}
 				});
 				// clang-format on
-				return ERROR(CONFIGURATION_ERROR,
+				return ERROR(SYS_CONFIG_FILE_ERR,
 				             fmt::format(FMT_COMPILE("Base reconnect delay greater than {}."),
 				                         std::numeric_limits<proton::duration::numeric_type>::max()));
 			}
@@ -683,7 +683,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					{KW_RECONNECT_MAX_DELAY, std::to_string(reconnect_max_delay)}
 				});
 				// clang-format on
-				return ERROR(CONFIGURATION_ERROR,
+				return ERROR(SYS_CONFIG_FILE_ERR,
 				             fmt::format(FMT_COMPILE("Max reconnect delay greater than {}."),
 				                         std::numeric_limits<proton::duration::numeric_type>::max()));
 			}
@@ -707,7 +707,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					{KW_RECONNECT_MAX_ATTEMPTS, std::to_string(reconnect_max_attempts)}
 				});
 				// clang-format on
-				return ERROR(CONFIGURATION_ERROR,
+				return ERROR(SYS_CONFIG_FILE_ERR,
 				             fmt::format(FMT_COMPILE("Max reconnect attempts greater than {}."),
 				                         std::numeric_limits<int>::max()));
 			}
@@ -766,7 +766,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					});
 					// clang-format on
 					return ERROR(
-						CONFIGURATION_ERROR,
+						SYS_CONFIG_FILE_ERR,
 						fmt::format(FMT_COMPILE("Unrecognized {}:{} value."), KW_SENDER, KW_LINK_DELIVERY_MODE));
 				}
 			}
@@ -797,7 +797,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 						 std::to_string(sender_close_timeout)},
 					});
 					// clang-format on
-					return ERROR(CONFIGURATION_ERROR,
+					return ERROR(SYS_CONFIG_FILE_ERR,
 					             fmt::format(FMT_COMPILE("Sender close timeout greater than {}."),
 					                         std::numeric_limits<std::chrono::milliseconds::rep>::max()));
 				}
@@ -872,7 +872,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 							 source_distribution_mode},
 						});
 						// clang-format on
-						return ERROR(CONFIGURATION_ERROR,
+						return ERROR(SYS_CONFIG_FILE_ERR,
 						             fmt::format(FMT_COMPILE("Unrecognized {}:{}:{} value."),
 						                         KW_SENDER,
 						                         KW_LINK_SOURCE,
@@ -912,7 +912,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 							 source_durability_mode},
 						});
 						// clang-format on
-						return ERROR(CONFIGURATION_ERROR,
+						return ERROR(SYS_CONFIG_FILE_ERR,
 						             fmt::format(FMT_COMPILE("Unrecognized {}:{}:{} value."),
 						                         KW_SENDER,
 						                         KW_LINK_SOURCE,
@@ -938,7 +938,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 							 std::to_string(source_timeout)},
 						});
 						// clang-format on
-						return ERROR(CONFIGURATION_ERROR,
+						return ERROR(SYS_CONFIG_FILE_ERR,
 						             fmt::format(FMT_COMPILE("Sender source timeout greater than {}."),
 						                         std::numeric_limits<proton::duration::numeric_type>::max()));
 					}
@@ -978,7 +978,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 							 source_expiry_policy},
 						});
 						// clang-format on
-						return ERROR(CONFIGURATION_ERROR,
+						return ERROR(SYS_CONFIG_FILE_ERR,
 						             fmt::format(FMT_COMPILE("Unrecognized {}:{}:{} value."),
 						                         KW_SENDER,
 						                         KW_LINK_SOURCE,
@@ -1055,7 +1055,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 							 target_durability_mode},
 						});
 						// clang-format on
-						return ERROR(CONFIGURATION_ERROR,
+						return ERROR(SYS_CONFIG_FILE_ERR,
 						             fmt::format(FMT_COMPILE("Unrecognized {}:{}:{} value."),
 						                         KW_SENDER,
 						                         KW_LINK_TARGET,
@@ -1081,7 +1081,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 							 std::to_string(target_timeout)},
 						});
 						// clang-format on
-						return ERROR(CONFIGURATION_ERROR,
+						return ERROR(SYS_CONFIG_FILE_ERR,
 						             fmt::format(FMT_COMPILE("Sender target timeout greater than {}."),
 						                         std::numeric_limits<proton::duration::numeric_type>::max()));
 					}
@@ -1121,7 +1121,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 							 target_expiry_policy},
 						});
 						// clang-format on
-						return ERROR(CONFIGURATION_ERROR,
+						return ERROR(SYS_CONFIG_FILE_ERR,
 						             fmt::format(FMT_COMPILE("Unrecognized {}:{}:{} value."),
 						                         KW_SENDER,
 						                         KW_LINK_TARGET,
@@ -1160,7 +1160,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					{KW_MESSAGE_SEND_TIMEOUT, std::to_string(message_send_timeout)}
 				});
 				// clang-format on
-				return ERROR(CONFIGURATION_ERROR,
+				return ERROR(SYS_CONFIG_FILE_ERR,
 				             fmt::format(FMT_COMPILE("Message send timeout greater than {}."),
 				                         std::numeric_limits<std::chrono::milliseconds::rep>::max()));
 			}
@@ -1185,7 +1185,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					{KW_SESSION_CLOSE_TIMEOUT, std::to_string(session_close_timeout)}
 				});
 				// clang-format on
-				return ERROR(CONFIGURATION_ERROR,
+				return ERROR(SYS_CONFIG_FILE_ERR,
 				             fmt::format(FMT_COMPILE("Session close timeout greater than {}."),
 				                         std::numeric_limits<std::chrono::milliseconds::rep>::max()));
 			}
