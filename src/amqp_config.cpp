@@ -516,13 +516,15 @@ namespace irods::plugin::rule_engine::audit_amqp
 				if (mechanisms_arr.empty()) {
 					sasl_mechanisms_ = "";
 				}
-				auto mechanisms_itr = mechanisms_arr.begin();
-				std::stringstream mechanisms_ss;
-				mechanisms_ss << mechanisms_itr->get_ref<const std::string&>();
-				while (++mechanisms_itr != mechanisms_arr.end()) {
-					mechanisms_ss << ' ' << mechanisms_itr->get_ref<const std::string&>();
+				else {
+					auto mechanisms_itr = mechanisms_arr.begin();
+					std::stringstream mechanisms_ss;
+					mechanisms_ss << mechanisms_itr->get_ref<const std::string&>();
+					while (++mechanisms_itr != mechanisms_arr.end()) {
+						mechanisms_ss << ' ' << mechanisms_itr->get_ref<const std::string&>();
+					}
+					sasl_mechanisms_ = mechanisms_ss.str();
 				}
-				sasl_mechanisms_ = mechanisms_ss.str();
 			}
 			else if (!mechanisms_cfg->is_null()) {
 				sasl_mechanisms_ = mechanisms_cfg->get_ref<const std::string&>();
