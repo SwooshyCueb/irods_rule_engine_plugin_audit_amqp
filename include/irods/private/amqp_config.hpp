@@ -45,7 +45,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 			static constexpr const std::string_view primary_endpoint{"amqp://localhost:5672"};
 
-			static constexpr const std::string_view path{"queues/irods_audit_messages"};
+			static constexpr const std::string_view path{"/queues/irods_audit_messages"};
 
 			static constexpr const std::optional<std::string> user = std::nullopt;
 			static constexpr const std::optional<std::string> password = std::nullopt;
