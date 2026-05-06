@@ -20,6 +20,7 @@ if (NOT Catch2_FOUND)
   find_package(Catch2 2.13.2 REQUIRED)
 endif()
 
+include(ObjectTargetHelpers)
 include(Catch)
 
 # create phony target to build all unit tests
@@ -101,3 +102,4 @@ function(add_irods_unit_test test_name)
 endfunction()
 
 add_irods_unit_test(b64enc)
+add_irods_unit_test(config_load)

@@ -62,6 +62,7 @@ endif()
 
 include(GNUInstallDirs)
 include(CheckCXXSymbolExists)
+include(ObjectTargetHelpers)
 
 find_package(Threads REQUIRED)
 find_package(OpenSSL REQUIRED COMPONENTS Crypto SSL)
@@ -110,32 +111,34 @@ configure_file(
 )
 
 add_library(
-  ${PLUGIN}
-  MODULE
+  ${PLUGIN}_obj
+  OBJECT
   "${${PLUGIN}_SOURCES}"
   "${${PLUGIN}_HEADERS}"
   "${${PLUGIN}_HEADERS_GENERATORS}"
   "${${PLUGIN}_HEADERS_GENERATED}"
 )
-target_compile_options(${PLUGIN} PRIVATE -Wno-write-strings)
-target_compile_definitions(${PLUGIN} PRIVATE ${IRODS_COMPILE_DEFINITIONS} ${IRODS_COMPILE_DEFINITIONS_PRIVATE} IRODS_ENABLE_SYSLOG)
+target_compile_options(${PLUGIN}_obj PRIVATE -Wno-write-strings)
+target_compile_definitions(${PLUGIN}_obj PRIVATE ${IRODS_COMPILE_DEFINITIONS} ${IRODS_COMPILE_DEFINITIONS_PRIVATE} IRODS_ENABLE_SYSLOG)
 target_include_directories(
-  ${PLUGIN}
-  PRIVATE
+  ${PLUGIN}_obj
+  PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
+  PRIVATE
   ${IRODS_INCLUDE_DIRS}
   ${IRODS_EXTERNALS_FULLPATH_BOOST}/include
   ${IRODS_EXTERNALS_FULLPATH_QPID_PROTON}/include
   )
 
 target_link_libraries(
-  ${PLUGIN}
-  PRIVATE
+  ${PLUGIN}_obj
+  PUBLIC
   irods_server
   irods_common
   nlohmann_json::nlohmann_json
   fmt::fmt
+  PRIVATE
   ${IRODS_EXTERNALS_FULLPATH_QPID_PROTON}/lib/libqpid-proton-cpp.so
   ${IRODS_EXTERNALS_FULLPATH_BOOST}/lib/libboost_system.so
   ${IRODS_EXTERNALS_FULLPATH_BOOST}/lib/libboost_url.so
@@ -143,17 +146,24 @@ target_link_libraries(
   )
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-  target_compile_definitions(${PLUGIN} PRIVATE IRODS_AUDIT_EXTRA_TRACE)
+  target_compile_definitions(${PLUGIN}_obj PRIVATE IRODS_AUDIT_EXTRA_TRACE)
 endif()
 
 check_cxx_symbol_exists(__cpp_lib_filesystem "version" HAVE_STD_FILESYSTEM)
 if (NOT HAVE_STD_FILESYSTEM)
   target_link_libraries(
-    ${PLUGIN}
+    ${PLUGIN}_obj
     PRIVATE
     ${IRODS_EXTERNALS_FULLPATH_BOOST}/lib/libboost_filesystem.so
     )
 endif()
+
+add_library(${PLUGIN} MODULE)
+target_link_objects(
+	${PLUGIN}
+	PRIVATE
+	${PLUGIN}_obj
+)
 
 install(TARGETS ${PLUGIN} LIBRARY DESTINATION ${IRODS_PLUGINS_DIRECTORY}/rule_engines)
 

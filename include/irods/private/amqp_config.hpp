@@ -71,7 +71,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			static constexpr const std::optional<std::string> sasl_mechanisms = std::nullopt;
 			static constexpr const std::optional<bool> sasl_allow_insecure = std::nullopt;
 
-			static constexpr const auto sender_delivery_mode = std::nullopt;
+			static constexpr const std::optional<enum proton::delivery_mode::modes> sender_delivery_mode = std::nullopt;
 			static constexpr const std::optional<bool> sender_auto_settle = std::nullopt;
 			static constexpr const std::chrono::milliseconds sender_close_timeout{30000};
 
@@ -86,12 +86,12 @@ namespace irods::plugin::rule_engine::audit_amqp
 			static constexpr const std::optional<std::string> sender_target_address = std::nullopt;
 			static constexpr const std::optional<bool> sender_target_dynamic = std::nullopt;
 			static constexpr const std::optional<bool> sender_target_anonymous = std::nullopt;
-			static constexpr const enum proton::target::durability_mode sender_target_durability_mode =
+			static constexpr const std::optional<enum proton::target::durability_mode> sender_target_durability_mode =
 				proton::target::durability_mode::UNSETTLED_STATE;
 			static constexpr const auto sender_target_timeout = std::nullopt;
 			static constexpr const std::optional<enum proton::target::expiry_policy> sender_target_expiry_policy = std::nullopt;
 
-			static constexpr const bool durable_messages = true;
+			static constexpr const std::optional<bool> durable_messages = true;
 			static constexpr const std::chrono::milliseconds message_send_timeout{30000};
 
 			static constexpr const std::chrono::milliseconds session_close_timeout{10000};
@@ -244,7 +244,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		[[nodiscard]] constexpr const std::optional<bool>& sasl_enabled() const { return sasl_enabled_; }
 		[[nodiscard]] constexpr const std::optional<std::string>& sasl_mechanisms() const { return sasl_mechanisms_; }
 		[[nodiscard]] constexpr const std::optional<bool>& sasl_allow_insecure() const { return sasl_allow_insecure_; }
-		[[nodiscard]] constexpr const std::optional<proton::delivery_mode>& sender_delivery_mode() const { return sender_delivery_mode_; }
+		[[nodiscard]] constexpr const std::optional<enum proton::delivery_mode::modes>& sender_delivery_mode() const { return sender_delivery_mode_; }
 		[[nodiscard]] constexpr const std::optional<bool>& sender_auto_settle() const { return sender_auto_settle_; }
 		[[nodiscard]] constexpr const std::chrono::milliseconds sender_close_timeout() const { return sender_close_timeout_; }
 		[[nodiscard]] constexpr const std::optional<std::string>& sender_source_address() const { return sender_source_address_; }
@@ -370,7 +370,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		std::optional<std::string> sasl_mechanisms_;
 		std::optional<bool> sasl_allow_insecure_;
 
-		std::optional<proton::delivery_mode> sender_delivery_mode_;
+		std::optional<enum proton::delivery_mode::modes> sender_delivery_mode_;
 		std::optional<bool> sender_auto_settle_;
 		std::chrono::milliseconds sender_close_timeout_;
 
