@@ -216,8 +216,6 @@ namespace irods::plugin::rule_engine::audit_amqp
 			message_send_timeout_ = defaults::message_send_timeout;
 
 			session_close_timeout_ = defaults::session_close_timeout;
-
-			is_initialized_ = true;
 		}
 
 		[[nodiscard]] constexpr bool is_initialized() const { return is_initialized_; }
