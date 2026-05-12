@@ -157,6 +157,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					{"log_message", "Reached timeout while establishing AMQP connection."}
 				});
 				// clang-format on
+				return ERROR(RE_RUNTIME_ERROR, "Reached timeout while establishing AMQP connection.");
 			}
 		}
 		else {
