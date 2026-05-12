@@ -33,6 +33,7 @@
 #include <chrono>
 #include <cstdint>
 #include <exception>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <ostream>
@@ -182,17 +183,20 @@ namespace irods::plugin::rule_engine::audit_amqp
 #endif
 
 		if (sender_.has_value()) {
-			std::binary_semaphore sender_disconn_sem(0);
+			const auto sender_disconn_sem = std::make_shared<std::binary_semaphore>(0);
+			const std::weak_ptr<std::binary_semaphore> sender_disconn_sem_wk = sender_disconn_sem;
 			proton::sender& sender = *sender_;
-			bool wq_res = sender.work_queue().add([&sender, &sender_disconn_sem]() {
+			bool wq_res = sender.work_queue().add([&sender, sender_disconn_sem_wk]() {
 				if (!sender.closed()) {
 					sender.close();
 				}
-				sender_disconn_sem.release();
+				if (const auto sender_disconn_sem = sender_disconn_sem_wk.lock(); sender_disconn_sem) {
+					sender_disconn_sem->release();
+				}
 			});
 			if (wq_res) {
 				if (amqp_config_.sender_close_timeout() > std::chrono::milliseconds::zero()) {
-					if (!sender_disconn_sem.try_acquire_for(amqp_config_.sender_close_timeout())) {
+					if (!sender_disconn_sem->try_acquire_for(amqp_config_.sender_close_timeout())) {
 						// clang-format off
 						log_re::error({
 							{"rule_engine_plugin", rule_engine_name},
@@ -203,7 +207,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					}
 				}
 				else {
-					sender_disconn_sem.acquire();
+					sender_disconn_sem->acquire();
 				}
 #ifdef IRODS_AUDIT_EXTRA_TRACE
 				// clang-format off
@@ -225,17 +229,20 @@ namespace irods::plugin::rule_engine::audit_amqp
 				// clang-format on
 			}
 
-			std::binary_semaphore session_disconn_sem(0);
+			const auto session_disconn_sem = std::make_shared<std::binary_semaphore>(0);
+			const std::weak_ptr<std::binary_semaphore> session_disconn_sem_wk = session_disconn_sem;
 			proton::session session = sender.session();
-			wq_res = session.work_queue().add([&session, &session_disconn_sem]() {
+			wq_res = session.work_queue().add([&session, session_disconn_sem_wk]() {
 				if (!session.closed()) {
 					session.close();
 				}
-				session_disconn_sem.release();
+				if (const auto session_disconn_sem = session_disconn_sem_wk.lock(); session_disconn_sem) {
+					session_disconn_sem->release();
+				}
 			});
 			if (wq_res) {
 				if (amqp_config_.session_close_timeout() > std::chrono::milliseconds::zero()) {
-					if (!session_disconn_sem.try_acquire_for(amqp_config_.session_close_timeout())) {
+					if (!session_disconn_sem->try_acquire_for(amqp_config_.session_close_timeout())) {
 						// clang-format off
 						log_re::error({
 							{"rule_engine_plugin", rule_engine_name},
@@ -246,7 +253,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					}
 				}
 				else {
-					session_disconn_sem.acquire();
+					session_disconn_sem->acquire();
 				}
 #ifdef IRODS_AUDIT_EXTRA_TRACE
 				// clang-format off
@@ -273,17 +280,20 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 		bool did_close_conn = false;
 		if (connection_.has_value()) {
-			std::binary_semaphore connection_disconn_sem(0);
+			const auto connection_disconn_sem = std::make_shared<std::binary_semaphore>(0);
+			const std::weak_ptr<std::binary_semaphore> connection_disconn_sem_wk = connection_disconn_sem;
 			proton::connection& connection = *connection_;
-			const bool wq_res = connection.work_queue().add([&connection, &connection_disconn_sem]() {
+			const bool wq_res = connection.work_queue().add([&connection, connection_disconn_sem_wk]() {
 				if (!connection.closed()) {
 					connection.close();
 				}
-				connection_disconn_sem.release();
+				if (const auto connection_disconn_sem = connection_disconn_sem_wk.lock(); connection_disconn_sem) {
+					connection_disconn_sem->release();
+				}
 			});
 			if (wq_res) {
 				if (amqp_config_.connection_close_timeout() > std::chrono::milliseconds::zero()) {
-					if (!connection_disconn_sem.try_acquire_for(amqp_config_.connection_close_timeout())) {
+					if (!connection_disconn_sem->try_acquire_for(amqp_config_.connection_close_timeout())) {
 						// clang-format off
 						log_re::error({
 							{"rule_engine_plugin", rule_engine_name},
@@ -294,7 +304,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 					}
 				}
 				else {
-					connection_disconn_sem.acquire();
+					connection_disconn_sem->acquire();
 				}
 				did_close_conn = true;
 #ifdef IRODS_AUDIT_EXTRA_TRACE
@@ -388,19 +398,21 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 		const std::string msg_str = _message_body.dump();
 
-		proton::message msg(msg_str);
-		msg.content_type("application/json");
-		msg.creation_time(proton::timestamp(static_cast<proton::timestamp::numeric_type>(_timestamp_ms)));
+		const auto msg = std::make_shared<proton::message>(msg_str);
+		msg->content_type("application/json");
+		msg->creation_time(proton::timestamp(static_cast<proton::timestamp::numeric_type>(_timestamp_ms)));
 		if (amqp_config_.durable_messages().has_value()) {
-			msg.durable(*amqp_config_.durable_messages());
+			msg->durable(*amqp_config_.durable_messages());
 		}
 
-		std::binary_semaphore send_semaphore(0);
+		const auto send_sem = std::make_shared<std::binary_semaphore>(0);
+		const std::weak_ptr<std::binary_semaphore> send_sem_wk = send_sem;
 		proton::sender& sender = *sender_;
-		std::exception_ptr send_e;
-		const bool is_sending = sender.work_queue().add([&sender, &msg, &send_semaphore, &send_e]() {
+		const auto send_e = std::make_shared<std::exception_ptr>();
+		const std::weak_ptr<std::exception_ptr> send_e_wk = send_e;
+		const bool is_sending = sender.work_queue().add([&sender, msg, send_sem_wk, send_e_wk]() {
 			try {
-				const proton::tracker t = sender.send(msg);
+				const proton::tracker t = sender.send(*msg);
 #ifdef IRODS_AUDIT_EXTRA_TRACE
 				// clang-format off
 				log_re::debug({
@@ -411,7 +423,9 @@ namespace irods::plugin::rule_engine::audit_amqp
 #endif
 			}
 			catch (const std::exception& e) {
-				send_e = std::current_exception();
+				if (const auto send_e = send_e_wk.lock(); send_e) {
+					*send_e = std::current_exception();
+				}
 				// clang-format off
 				log_re::error({
 					{"rule_engine_plugin", rule_engine_name},
@@ -420,11 +434,13 @@ namespace irods::plugin::rule_engine::audit_amqp
 				});
 				// clang-format on
 			}
-			send_semaphore.release();
+			if (const auto send_sem = send_sem_wk.lock(); send_sem) {
+				send_sem->release();
+			}
 		});
 		if (is_sending) {
 			if (amqp_config_.message_send_timeout() > std::chrono::milliseconds::zero()) {
-				if (!send_semaphore.try_acquire_for(amqp_config_.message_send_timeout())) {
+				if (!send_sem->try_acquire_for(amqp_config_.message_send_timeout())) {
 					// clang-format off
 					log_re::error({
 						{"rule_engine_plugin", rule_engine_name},
@@ -435,10 +451,10 @@ namespace irods::plugin::rule_engine::audit_amqp
 				}
 			}
 			else {
-				send_semaphore.acquire();
+				send_sem->acquire();
 			}
-			if (send_e) {
-				std::rethrow_exception(send_e);
+			if (*send_e) {
+				std::rethrow_exception(*send_e);
 			}
 		}
 		else {
