@@ -22,6 +22,8 @@
 
 #include <nlohmann/json.hpp>
 
+#include <proton/error.hpp>
+
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -61,6 +63,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 	{
 		// NOLINTBEGIN(cert-err58-cpp, cppcoreguidelines-avoid-non-const-global-variables)
 		plugin_config audit_config;
+		irods::error error_state;
 
 		amqp_sender audit_amqp_sender;
 
@@ -111,38 +114,68 @@ namespace irods::plugin::rule_engine::audit_amqp
 		});
 		// clang-format on
 #endif
-		// test log should never throw exceptions
-		log_file_ofstream.exceptions(static_cast<std::ios_base::iostate>(0));
+		try {
+			// test log should never throw exceptions
+			log_file_ofstream.exceptions(static_cast<std::ios_base::iostate>(0));
 
-		irods::error ret = audit_config.initialize(_instance_name);
-		if (!ret.ok()) {
+			irods::error ret = audit_config.initialize(_instance_name);
+			if (!ret.ok()) {
+				// clang-format off
+				log_re::error({
+					{"rule_engine_plugin", rule_engine_name},
+					{irods::KW_CFG_INSTANCE_NAME, _instance_name},
+					{"log_message", "Error loading plugin configuration"},
+					{"error_result", ret.result()},
+				});
+				// clang-format on
+
+				error_state = PASSMSG("Error loading plugin configuration", ret);
+				return error_state;
+			}
+
+			ret = audit_amqp_sender.configure(_instance_name, audit_config.amqp_config());
+			if (!ret.ok()) {
+				// clang-format off
+				log_re::error({
+					{"rule_engine_plugin", rule_engine_name},
+					{irods::KW_CFG_INSTANCE_NAME, _instance_name},
+					{"log_message", "Error establishing AMQP connection"},
+					{"error_result", ret.result()},
+				});
+				// clang-format on
+
+				error_state = PASSMSG("Error configuring amqp_sender", ret);
+				return error_state;
+			}
+		}
+		catch (const irods::exception& e) {
+			const std::string e_what = e.what();
+			log_exception(log_re::error, "Caught iRODS exception", e_what, _instance_name);
+			error_state =
+				ERROR(e.code(), fmt::format(FMT_COMPILE("Unhandled exception during plugin setup: {}"), e_what));
+			return error_state;
+		}
+		catch (const std::exception& e) {
+			const std::string e_what = e.what();
+			log_exception(log_re::error, "Caught exception", e_what, _instance_name);
+			error_state = ERROR(
+				SYS_INTERNAL_ERR, fmt::format(FMT_COMPILE("Unhandled exception during plugin setup: {}"), e_what));
+			return error_state;
+		}
+		catch (...) {
 			// clang-format off
 			log_re::error({
 				{"rule_engine_plugin", rule_engine_name},
 				{irods::KW_CFG_INSTANCE_NAME, _instance_name},
-				{"log_message", "Error loading plugin configuration"},
-				{"error_result", ret.result()},
+				{"log_message", "Caught unknown exception"}
 			});
 			// clang-format on
-
-			return PASSMSG("Error loading plugin configuration", ret);
+			error_state = ERROR(SYS_UNKNOWN_ERROR, "Unknown error during plugin setup.");
+			return error_state;
 		}
 
-		ret = audit_amqp_sender.configure(_instance_name, audit_config.amqp_config());
-		if (!ret.ok()) {
-			// clang-format off
-			log_re::error({
-				{"rule_engine_plugin", rule_engine_name},
-				{irods::KW_CFG_INSTANCE_NAME, _instance_name},
-				{"log_message", "Error establishing AMQP connection"},
-				{"error_result", ret.result()},
-			});
-			// clang-format on
-
-			return PASSMSG("Error configuring amqp_sender", ret);
-		}
-
-		return SUCCESS();
+		error_state = SUCCESS();
+		return error_state;
 	} // setup
 
 	static irods::error teardown([[maybe_unused]] irods::default_re_ctx& _re_ctx,
@@ -157,7 +190,9 @@ namespace irods::plugin::rule_engine::audit_amqp
 		});
 		// clang-format on
 #endif
-		return SUCCESS();
+		// reset error state
+		error_state = SUCCESS();
+		return error_state;
 	} // teardown
 
 	static irods::error start([[maybe_unused]] irods::default_re_ctx& _re_ctx, const std::string& _instance_name)
@@ -171,6 +206,19 @@ namespace irods::plugin::rule_engine::audit_amqp
 		});
 		// clang-format on
 #endif
+
+		if (!error_state.ok()) {
+			// clang-format off
+			log_re::error({
+				{"rule_engine_plugin", rule_engine_name},
+				{irods::KW_CFG_INSTANCE_NAME, _instance_name},
+				{"log_message", "start called with plugin in error state"},
+				{"error_state::result", error_state.result()},
+			});
+			// clang-format on
+
+			return error_state;
+		}
 
 		nlohmann::json json_obj;
 		const pid_t pid = getpid();
@@ -189,7 +237,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 				});
 				// clang-format on
 
-				return PASSMSG("Error establishing AMQP connection", ret);
+				error_state = PASSMSG("Error establishing AMQP connection", ret);
+				return error_state;
 			}
 
 			json_obj["action"] = "START";
@@ -254,17 +303,30 @@ namespace irods::plugin::rule_engine::audit_amqp
 		catch (const irods::exception& e) {
 			const std::string e_what = e.what();
 			log_exception(log_re::error, "Caught iRODS exception", e_what, _instance_name);
-			return ERROR(e.code(), e_what);
+			error_state =
+				ERROR(e.code(), fmt::format(FMT_COMPILE("Unhandled exception during plugin start: {}"), e_what));
+			return error_state;
 		}
 		catch (const nlohmann::json::exception& e) {
 			const std::string e_what = e.what();
 			log_exception(log_re::error, "Caught nlohmann-json exception", e_what, _instance_name);
-			return ERROR(SYS_LIBRARY_ERROR, e_what);
+			error_state = ERROR(
+				SYS_LIBRARY_ERROR, fmt::format(FMT_COMPILE("Unhandled exception during plugin start: {}"), e_what));
+			return error_state;
+		}
+		catch (const proton::error& e) {
+			const std::string e_what = e.what();
+			log_exception(log_re::error, "Caught qpid-proton exception", e_what, _instance_name);
+			error_state = ERROR(
+				SYS_LIBRARY_ERROR, fmt::format(FMT_COMPILE("Unhandled exception during plugin start: {}"), e_what));
+			return error_state;
 		}
 		catch (const std::exception& e) {
 			const std::string e_what = e.what();
 			log_exception(log_re::error, "Caught exception", e_what, _instance_name);
-			return ERROR(SYS_INTERNAL_ERR, e_what);
+			error_state = ERROR(
+				SYS_INTERNAL_ERR, fmt::format(FMT_COMPILE("Unhandled exception during plugin start: {}"), e_what));
+			return error_state;
 		}
 		catch (...) {
 			// clang-format off
@@ -274,10 +336,12 @@ namespace irods::plugin::rule_engine::audit_amqp
 				{"log_message", "Caught unknown exception"}
 			});
 			// clang-format on
-			return ERROR(SYS_UNKNOWN_ERROR, "An unknown error occurred");
+			error_state = ERROR(SYS_UNKNOWN_ERROR, "Unknown error during plugin start.");
+			return error_state;
 		}
 
-		return SUCCESS();
+		error_state = SUCCESS();
+		return error_state;
 	}
 
 	static auto stop([[maybe_unused]] irods::default_re_ctx& _re_ctx, const std::string& _instance_name) -> irods::error
@@ -291,6 +355,19 @@ namespace irods::plugin::rule_engine::audit_amqp
 		});
 		// clang-format on
 #endif
+
+		if (!error_state.ok()) {
+			// clang-format off
+			log_re::error({
+				{"rule_engine_plugin", rule_engine_name},
+				{irods::KW_CFG_INSTANCE_NAME, _instance_name},
+				{"log_message", "stop called with plugin in error state"},
+				{"error_state::result", error_state.result()},
+			});
+			// clang-format on
+
+			return error_state;
+		}
 
 		nlohmann::json json_obj;
 
@@ -313,6 +390,11 @@ namespace irods::plugin::rule_engine::audit_amqp
 		catch (const nlohmann::json::exception& e) {
 			const std::string e_what = e.what();
 			log_exception(log_re::error, "Caught nlohmann-json exception", e_what, _instance_name);
+			return ERROR(SYS_LIBRARY_ERROR, e_what);
+		}
+		catch (const proton::error& e) {
+			const std::string e_what = e.what();
+			log_exception(log_re::error, "Caught qpid-proton exception", e_what, _instance_name);
 			return ERROR(SYS_LIBRARY_ERROR, e_what);
 		}
 		catch (const std::exception& e) {
@@ -349,8 +431,29 @@ namespace irods::plugin::rule_engine::audit_amqp
 		-> irods::error
 	{
 		try {
-			std::smatch matches;
-			_ret = std::regex_match(_rn, matches, audit_config.pep_regex());
+			if (audit_config.pep_regex().has_value()) {
+				std::smatch matches;
+				_ret = std::regex_match(_rn, matches, audit_config.pep_regex().value());
+				if ((audit_config.failsafe_mode() == plugin_config::failsafe_mode::BLOCK_OPERATION) &&
+				    !error_state.ok())
+				{
+					// TODO: should we be doing this?
+					return error_state;
+				}
+			}
+			else if (!error_state.ok()) {
+				return error_state;
+			}
+			else {
+				// if we wind up here, something terrible has happened.
+				// clang-format off
+				log_re::error({
+					{"rule_engine_plugin", rule_engine_name},
+					{"log_message", "No pep_regex, but no error_state."}
+				});
+				// clang-format on
+				return ERROR(RE_RUNTIME_ERROR, "No pep_regex, but no error_state.");
+			}
 		}
 		catch (const std::exception& _e) {
 			return ERROR(SYS_INTERNAL_ERR, _e.what());
@@ -387,6 +490,29 @@ namespace irods::plugin::rule_engine::audit_amqp
 		// clang-format on
 #endif
 
+		if (!error_state.ok()) {
+			if (audit_config.failsafe_mode() == plugin_config::failsafe_mode::ALLOW_OPERATION) {
+				// clang-format off
+				log_re::warn({
+					{"rule_engine_plugin", rule_engine_name},
+					{irods::KW_CFG_INSTANCE_NAME, _instance_name},
+					{"rule_name", _rn},
+					{"log_message", "Plugin is in error state. Skipping audit."}
+				});
+				// clang-format on
+				return CODE(RULE_ENGINE_CONTINUE);
+			}
+			// clang-format off
+			log_re::error({
+				{"rule_engine_plugin", rule_engine_name},
+				{irods::KW_CFG_INSTANCE_NAME, _instance_name},
+				{"rule_name", _rn},
+				{"log_message", "Plugin is in error state. Returning previous error."}
+			});
+			// clang-format on
+			return error_state;
+		}
+
 		// stores a counter of unique arg types
 		std::map<std::string, std::size_t> arg_type_map;
 
@@ -401,7 +527,11 @@ namespace irods::plugin::rule_engine::audit_amqp
 				{"error_result", err.result()}
 			});
 			// clang-format on
-			return CODE(RULE_ENGINE_CONTINUE);
+
+			if (audit_config.failsafe_mode() == plugin_config::failsafe_mode::ALLOW_OPERATION) {
+				return CODE(RULE_ENGINE_CONTINUE);
+			}
+			return err;
 		}
 
 		nlohmann::json json_obj;
@@ -466,16 +596,41 @@ namespace irods::plugin::rule_engine::audit_amqp
 				}
 			}
 
-			audit_amqp_sender.send_message(json_obj, time_ms, getpid(), log_file_ofstream);
+			auto err = audit_amqp_sender.send_message(json_obj, time_ms, getpid(), log_file_ofstream);
+			if (!err.ok() && (audit_config.failsafe_mode() == plugin_config::failsafe_mode::BLOCK_OPERATION)) {
+				return err;
+			}
 		}
 		catch (const irods::exception& e) {
-			log_exception(log_re::error, "Caught iRODS exception", e.what(), _instance_name, _rn);
+			const std::string e_what = e.what();
+			log_exception(log_re::error, "Caught iRODS exception", e_what, _instance_name, _rn);
+			if (audit_config.failsafe_mode() == plugin_config::failsafe_mode::BLOCK_OPERATION) {
+				return ERROR(e.code(), fmt::format(FMT_COMPILE("Unhandled exception during plugin setup: {}"), e_what));
+			}
 		}
 		catch (const nlohmann::json::exception& e) {
-			log_exception(log_re::error, "Caught nlohmann-json exception", e.what(), _instance_name, _rn);
+			const std::string e_what = e.what();
+			log_exception(log_re::error, "Caught nlohmann-json exception", e_what, _instance_name, _rn);
+			if (audit_config.failsafe_mode() == plugin_config::failsafe_mode::BLOCK_OPERATION) {
+				return ERROR(
+					SYS_LIBRARY_ERROR, fmt::format(FMT_COMPILE("Unhandled exception during plugin setup: {}"), e_what));
+			}
+		}
+		catch (const proton::error& e) {
+			const std::string e_what = e.what();
+			log_exception(log_re::error, "Caught qpid-proton exception", e_what, _instance_name, _rn);
+			if (audit_config.failsafe_mode() == plugin_config::failsafe_mode::BLOCK_OPERATION) {
+				return ERROR(
+					SYS_LIBRARY_ERROR, fmt::format(FMT_COMPILE("Unhandled exception during plugin setup: {}"), e_what));
+			}
 		}
 		catch (const std::exception& e) {
-			log_exception(log_re::error, "Caught exception", e.what(), _instance_name, _rn);
+			const std::string e_what = e.what();
+			log_exception(log_re::error, "Caught exception", e_what, _instance_name, _rn);
+			if (audit_config.failsafe_mode() == plugin_config::failsafe_mode::BLOCK_OPERATION) {
+				return ERROR(
+					SYS_INTERNAL_ERR, fmt::format(FMT_COMPILE("Unhandled exception during plugin setup: {}"), e_what));
+			}
 		}
 		catch (...) {
 			// clang-format off
@@ -486,6 +641,9 @@ namespace irods::plugin::rule_engine::audit_amqp
 				{"log_message", "Caught unknown exception"}
 			});
 			// clang-format on
+			if (audit_config.failsafe_mode() == plugin_config::failsafe_mode::BLOCK_OPERATION) {
+				return ERROR(SYS_UNKNOWN_ERROR, "An unknown error occurred");
+			}
 		}
 
 		return CODE(RULE_ENGINE_CONTINUE);

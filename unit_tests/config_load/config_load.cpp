@@ -42,109 +42,112 @@ static constexpr const std::uint64_t too_big_for_ms =
 
 namespace audit_amqp = irods::plugin::rule_engine::audit_amqp;
 
-// NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-TEST_CASE("plugin configuration loading")
+const nlohmann::json server_config_init = {
+	// clang-format off
+	{irods::KW_CFG_LOG_LEVEL, {
+		{irods::KW_CFG_LOG_LEVEL_CATEGORY_AGENT, "info"},
+		{irods::KW_CFG_LOG_LEVEL_CATEGORY_AGENT_FACTORY, "info"},
+		{irods::KW_CFG_LOG_LEVEL_CATEGORY_RULE_ENGINE, "trace"},
+	}},
+	{irods::KW_CFG_PLUGIN_CONFIGURATION, {
+		{irods::KW_CFG_PLUGIN_TYPE_RULE_ENGINE, {
+			{
+				{irods::KW_CFG_INSTANCE_NAME, "irods_rule_engine_plugin-irods_rule_language-instance"},
+				{irods::KW_CFG_PLUGIN_NAME, "irods_rule_engine_plugin-irods_rule_language"},
+				{irods::KW_CFG_PLUGIN_SPECIFIC_CONFIGURATION, nlohmann::json::object()},
+			},
+			{
+				{irods::KW_CFG_INSTANCE_NAME, re_instance_name},
+				{irods::KW_CFG_PLUGIN_NAME, "irods_rule_engine_plugin-audit_amqp"},
+				{irods::KW_CFG_PLUGIN_SPECIFIC_CONFIGURATION, {
+					{audit_amqp::plugin_config::KW_FAILSAFE_MODE, "BLOCK_OPERATION"},
+					{audit_amqp::plugin_config::KW_PEP_REGEX, "pep_.+"},
+					{audit_amqp::amqp_config::KW_ENDPOINTS, {
+						{
+							{audit_amqp::amqp_config::KW_ENDPOINT_SCHEME, nullptr},
+							{audit_amqp::amqp_config::KW_ENDPOINT_HOST, "localhost"},
+							{audit_amqp::amqp_config::KW_ENDPOINT_PORT, 5672},
+							{audit_amqp::amqp_config::KW_ENDPOINT_PARAMETERS, nullptr},
+							{audit_amqp::amqp_config::KW_ENDPOINT_FRAGMENT, nullptr},
+						}
+					}},
+					{audit_amqp::amqp_config::KW_USER, audit_amqp::amqp_config::defaults::user},
+					{audit_amqp::amqp_config::KW_PASSWORD, audit_amqp::amqp_config::defaults::password},
+					{audit_amqp::amqp_config::KW_PATH, audit_amqp::amqp_config::defaults::path},
+					{audit_amqp::amqp_config::KW_PATH_PARAMETERS, nullptr},
+					{audit_amqp::amqp_config::KW_PATH_FRAGMENT, nullptr},
+					{audit_amqp::amqp_config::KW_SSL, {
+						{audit_amqp::amqp_config::KW_SSL_VERIFY_MODE, nullptr},
+						{audit_amqp::amqp_config::KW_SSL_TRUST_DB, audit_amqp::amqp_config::defaults::ssl_trust_db},
+						{audit_amqp::amqp_config::KW_SSL_CERTDB_MAIN, audit_amqp::amqp_config::defaults::ssl_certdb_main},
+						{audit_amqp::amqp_config::KW_SSL_CERTDB_EXTRA, audit_amqp::amqp_config::defaults::ssl_certdb_extra},
+						{audit_amqp::amqp_config::KW_SSL_CERT_PASSWORD, audit_amqp::amqp_config::defaults::ssl_cert_password},
+					}},
+					{audit_amqp::amqp_config::KW_SASL, {
+						{audit_amqp::amqp_config::KW_SASL_ENABLE, audit_amqp::amqp_config::defaults::sasl_enabled},
+						{audit_amqp::amqp_config::KW_SASL_MECHANISMS, audit_amqp::amqp_config::defaults::sasl_mechanisms},
+						{audit_amqp::amqp_config::KW_SASL_ALLOW_INSECURE, audit_amqp::amqp_config::defaults::sasl_allow_insecure},
+					}},
+					{audit_amqp::amqp_config::KW_CONNECTION_MAX_FRAME_SIZE, audit_amqp::amqp_config::defaults::connection_max_frame_size},
+					{audit_amqp::amqp_config::KW_CONNECTION_MAX_SESSIONS, audit_amqp::amqp_config::defaults::connection_max_sessions},
+					{audit_amqp::amqp_config::KW_CONNECTION_IDLE_TIMEOUT, nullptr},
+					{audit_amqp::amqp_config::KW_CONNECTION_VIRTUAL_HOST, audit_amqp::amqp_config::defaults::connection_virtual_host},
+					{audit_amqp::amqp_config::KW_CONNECTION_OPEN_TIMEOUT, nullptr},
+					{audit_amqp::amqp_config::KW_CONNECTION_CLOSE_TIMEOUT, nullptr},
+					{audit_amqp::amqp_config::KW_RECONNECT_BASE_DELAY, nullptr},
+					{audit_amqp::amqp_config::KW_RECONNECT_DELAY_MULTIPLIER, audit_amqp::amqp_config::defaults::reconnect_delay_multiplier},
+					{audit_amqp::amqp_config::KW_RECONNECT_MAX_DELAY, nullptr},
+					{audit_amqp::amqp_config::KW_RECONNECT_MAX_ATTEMPTS, audit_amqp::amqp_config::defaults::reconnect_max_attempts},
+					{audit_amqp::amqp_config::KW_SENDER, {
+						{audit_amqp::amqp_config::KW_LINK_DELIVERY_MODE, nullptr},
+						{audit_amqp::amqp_config::KW_LINK_AUTO_SETTLE, audit_amqp::amqp_config::defaults::sender_auto_settle},
+						{audit_amqp::amqp_config::KW_LINK_CLOSE_TIMEOUT, nullptr},
+						{audit_amqp::amqp_config::KW_LINK_SOURCE, {
+							{audit_amqp::amqp_config::KW_TERMINUS_ADDRESS, audit_amqp::amqp_config::defaults::sender_source_address},
+							{audit_amqp::amqp_config::KW_TERMINUS_DYNAMIC, audit_amqp::amqp_config::defaults::sender_source_dynamic},
+							{audit_amqp::amqp_config::KW_TERMINUS_ANONYMOUS, audit_amqp::amqp_config::defaults::sender_source_anonymous},
+							{audit_amqp::amqp_config::KW_SOURCE_DISTRIBUTION_MODE, nullptr},
+							{audit_amqp::amqp_config::KW_TERMINUS_DURABILITY_MODE, nullptr},
+							{audit_amqp::amqp_config::KW_TERMINUS_TIMEOUT, nullptr},
+							{audit_amqp::amqp_config::KW_TERMINUS_EXPIRY_POLICY, nullptr},
+						}},
+						{audit_amqp::amqp_config::KW_LINK_TARGET, {
+							{audit_amqp::amqp_config::KW_TERMINUS_ADDRESS, audit_amqp::amqp_config::defaults::sender_target_address},
+							{audit_amqp::amqp_config::KW_TERMINUS_DYNAMIC, audit_amqp::amqp_config::defaults::sender_target_dynamic},
+							{audit_amqp::amqp_config::KW_TERMINUS_ANONYMOUS, audit_amqp::amqp_config::defaults::sender_target_anonymous},
+							{audit_amqp::amqp_config::KW_TERMINUS_DURABILITY_MODE, nullptr},
+							{audit_amqp::amqp_config::KW_TERMINUS_TIMEOUT, nullptr},
+							{audit_amqp::amqp_config::KW_TERMINUS_EXPIRY_POLICY, nullptr},
+						}},
+					}},
+					{audit_amqp::amqp_config::KW_DURABLE_MESSAGES, audit_amqp::amqp_config::defaults::durable_messages},
+					{audit_amqp::amqp_config::KW_MESSAGE_SEND_TIMEOUT, nullptr},
+					{audit_amqp::amqp_config::KW_SESSION_CLOSE_TIMEOUT, nullptr},
+				}},
+			},
+			{
+				{irods::KW_CFG_INSTANCE_NAME, "irods_rule_engine_plugin-cpp_default_policy-instance"},
+				{irods::KW_CFG_PLUGIN_NAME, "irods_rule_engine_plugin-cpp_default_policy"},
+				{irods::KW_CFG_PLUGIN_SPECIFIC_CONFIGURATION, nlohmann::json::object()},
+			}
+		}}
+	}}
+	// clang-format on
+};
+
+// NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+TEST_CASE("basic configuration loading")
 {
 	irods::experimental::log::init(getpid(), false, false);
 
-	nlohmann::json server_config = {
-		// clang-format off
-		{irods::KW_CFG_LOG_LEVEL, {
-			{irods::KW_CFG_LOG_LEVEL_CATEGORY_AGENT, "info"},
-			{irods::KW_CFG_LOG_LEVEL_CATEGORY_AGENT_FACTORY, "info"},
-			{irods::KW_CFG_LOG_LEVEL_CATEGORY_RULE_ENGINE, "trace"},
-		}},
-		{irods::KW_CFG_PLUGIN_CONFIGURATION, {
-			{irods::KW_CFG_PLUGIN_TYPE_RULE_ENGINE, {
-				{
-					{irods::KW_CFG_INSTANCE_NAME, "irods_rule_engine_plugin-irods_rule_language-instance"},
-					{irods::KW_CFG_PLUGIN_NAME, "irods_rule_engine_plugin-irods_rule_language"},
-					{irods::KW_CFG_PLUGIN_SPECIFIC_CONFIGURATION, nlohmann::json::object()},
-				},
-				{
-					{irods::KW_CFG_INSTANCE_NAME, re_instance_name},
-					{irods::KW_CFG_PLUGIN_NAME, "irods_rule_engine_plugin-audit_amqp"},
-					{irods::KW_CFG_PLUGIN_SPECIFIC_CONFIGURATION, {
-						{audit_amqp::plugin_config::KW_PEP_REGEX, audit_amqp::plugin_config::defaults::pep_regex},
-						{audit_amqp::amqp_config::KW_ENDPOINTS, {
-							{
-								{audit_amqp::amqp_config::KW_ENDPOINT_SCHEME, nullptr},
-								{audit_amqp::amqp_config::KW_ENDPOINT_HOST, "localhost"},
-								{audit_amqp::amqp_config::KW_ENDPOINT_PORT, 5672},
-								{audit_amqp::amqp_config::KW_ENDPOINT_PARAMETERS, nullptr},
-								{audit_amqp::amqp_config::KW_ENDPOINT_FRAGMENT, nullptr},
-							}
-						}},
-						{audit_amqp::amqp_config::KW_USER, audit_amqp::amqp_config::defaults::user},
-						{audit_amqp::amqp_config::KW_PASSWORD, audit_amqp::amqp_config::defaults::password},
-						{audit_amqp::amqp_config::KW_PATH, audit_amqp::amqp_config::defaults::path},
-						{audit_amqp::amqp_config::KW_PATH_PARAMETERS, nullptr},
-						{audit_amqp::amqp_config::KW_PATH_FRAGMENT, nullptr},
-						{audit_amqp::amqp_config::KW_SSL, {
-							{audit_amqp::amqp_config::KW_SSL_VERIFY_MODE, nullptr},
-							{audit_amqp::amqp_config::KW_SSL_TRUST_DB, audit_amqp::amqp_config::defaults::ssl_trust_db},
-							{audit_amqp::amqp_config::KW_SSL_CERTDB_MAIN, audit_amqp::amqp_config::defaults::ssl_certdb_main},
-							{audit_amqp::amqp_config::KW_SSL_CERTDB_EXTRA, audit_amqp::amqp_config::defaults::ssl_certdb_extra},
-							{audit_amqp::amqp_config::KW_SSL_CERT_PASSWORD, audit_amqp::amqp_config::defaults::ssl_cert_password},
-						}},
-						{audit_amqp::amqp_config::KW_SASL, {
-							{audit_amqp::amqp_config::KW_SASL_ENABLE, audit_amqp::amqp_config::defaults::sasl_enabled},
-							{audit_amqp::amqp_config::KW_SASL_MECHANISMS, audit_amqp::amqp_config::defaults::sasl_mechanisms},
-							{audit_amqp::amqp_config::KW_SASL_ALLOW_INSECURE, audit_amqp::amqp_config::defaults::sasl_allow_insecure},
-						}},
-						{audit_amqp::amqp_config::KW_CONNECTION_MAX_FRAME_SIZE, audit_amqp::amqp_config::defaults::connection_max_frame_size},
-						{audit_amqp::amqp_config::KW_CONNECTION_MAX_SESSIONS, audit_amqp::amqp_config::defaults::connection_max_sessions},
-						{audit_amqp::amqp_config::KW_CONNECTION_IDLE_TIMEOUT, nullptr},
-						{audit_amqp::amqp_config::KW_CONNECTION_VIRTUAL_HOST, audit_amqp::amqp_config::defaults::connection_virtual_host},
-						{audit_amqp::amqp_config::KW_CONNECTION_OPEN_TIMEOUT, nullptr},
-						{audit_amqp::amqp_config::KW_CONNECTION_CLOSE_TIMEOUT, nullptr},
-						{audit_amqp::amqp_config::KW_RECONNECT_BASE_DELAY, nullptr},
-						{audit_amqp::amqp_config::KW_RECONNECT_DELAY_MULTIPLIER, audit_amqp::amqp_config::defaults::reconnect_delay_multiplier},
-						{audit_amqp::amqp_config::KW_RECONNECT_MAX_DELAY, nullptr},
-						{audit_amqp::amqp_config::KW_RECONNECT_MAX_ATTEMPTS, audit_amqp::amqp_config::defaults::reconnect_max_attempts},
-						{audit_amqp::amqp_config::KW_SENDER, {
-							{audit_amqp::amqp_config::KW_LINK_DELIVERY_MODE, nullptr},
-							{audit_amqp::amqp_config::KW_LINK_AUTO_SETTLE, audit_amqp::amqp_config::defaults::sender_auto_settle},
-							{audit_amqp::amqp_config::KW_LINK_CLOSE_TIMEOUT, nullptr},
-							{audit_amqp::amqp_config::KW_LINK_SOURCE, {
-								{audit_amqp::amqp_config::KW_TERMINUS_ADDRESS, audit_amqp::amqp_config::defaults::sender_source_address},
-								{audit_amqp::amqp_config::KW_TERMINUS_DYNAMIC, audit_amqp::amqp_config::defaults::sender_source_dynamic},
-								{audit_amqp::amqp_config::KW_TERMINUS_ANONYMOUS, audit_amqp::amqp_config::defaults::sender_source_anonymous},
-								{audit_amqp::amqp_config::KW_SOURCE_DISTRIBUTION_MODE, nullptr},
-								{audit_amqp::amqp_config::KW_TERMINUS_DURABILITY_MODE, nullptr},
-								{audit_amqp::amqp_config::KW_TERMINUS_TIMEOUT, nullptr},
-								{audit_amqp::amqp_config::KW_TERMINUS_EXPIRY_POLICY, nullptr},
-							}},
-							{audit_amqp::amqp_config::KW_LINK_TARGET, {
-								{audit_amqp::amqp_config::KW_TERMINUS_ADDRESS, audit_amqp::amqp_config::defaults::sender_target_address},
-								{audit_amqp::amqp_config::KW_TERMINUS_DYNAMIC, audit_amqp::amqp_config::defaults::sender_target_dynamic},
-								{audit_amqp::amqp_config::KW_TERMINUS_ANONYMOUS, audit_amqp::amqp_config::defaults::sender_target_anonymous},
-								{audit_amqp::amqp_config::KW_TERMINUS_DURABILITY_MODE, nullptr},
-								{audit_amqp::amqp_config::KW_TERMINUS_TIMEOUT, nullptr},
-								{audit_amqp::amqp_config::KW_TERMINUS_EXPIRY_POLICY, nullptr},
-							}},
-						}},
-						{audit_amqp::amqp_config::KW_DURABLE_MESSAGES, audit_amqp::amqp_config::defaults::durable_messages},
-						{audit_amqp::amqp_config::KW_MESSAGE_SEND_TIMEOUT, nullptr},
-						{audit_amqp::amqp_config::KW_SESSION_CLOSE_TIMEOUT, nullptr},
-					}},
-				},
-				{
-					{irods::KW_CFG_INSTANCE_NAME, "irods_rule_engine_plugin-cpp_default_policy-instance"},
-					{irods::KW_CFG_PLUGIN_NAME, "irods_rule_engine_plugin-cpp_default_policy"},
-					{irods::KW_CFG_PLUGIN_SPECIFIC_CONFIGURATION, nlohmann::json::object()},
-				}
-			}}
-		}}
-		// clang-format on
-	};
+	nlohmann::json server_config = server_config_init;
 
-	audit_amqp::plugin_config plugin_config;
 	auto& plugin_config_json =
 		server_config[irods::KW_CFG_PLUGIN_CONFIGURATION][irods::KW_CFG_PLUGIN_TYPE_RULE_ENGINE][1];
 	auto& psc_json = plugin_config_json[irods::KW_CFG_PLUGIN_SPECIFIC_CONFIGURATION];
 
-	// NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+	audit_amqp::plugin_config plugin_config;
+
 	SECTION(fmt::format(FMT_COMPILE("{} absent"), irods::KW_CFG_PLUGIN_SPECIFIC_CONFIGURATION))
 	{
 		plugin_config_json.erase(plugin_config_json.find(irods::KW_CFG_PLUGIN_SPECIFIC_CONFIGURATION));
@@ -197,6 +200,112 @@ TEST_CASE("plugin configuration loading")
 		CHECK_FALSE(plugin_config.amqp_config().is_initialized());
 	}
 
+	SECTION(fmt::format(FMT_COMPILE("{} absent"), audit_amqp::plugin_config::KW_FAILSAFE_MODE))
+	{
+		psc_json.erase(psc_json.find(audit_amqp::plugin_config::KW_FAILSAFE_MODE));
+		INFO("server config: " << server_config.dump(2));
+		irods::server_properties::instance().set_configuration(server_config);
+		const irods::error err = plugin_config.initialize(re_instance_name);
+		CHECK(err.ok());
+		CHECK(plugin_config.is_configured());
+		CHECK_FALSE(plugin_config.is_old_config());
+		REQUIRE(plugin_config.failsafe_mode() == audit_amqp::plugin_config::defaults::failsafe_mode);
+	}
+
+	SECTION(fmt::format(FMT_COMPILE("{} null"), audit_amqp::plugin_config::KW_FAILSAFE_MODE))
+	{
+		psc_json[audit_amqp::plugin_config::KW_FAILSAFE_MODE] = nullptr;
+		INFO("server config: " << server_config.dump(2));
+		irods::server_properties::instance().set_configuration(server_config);
+		const irods::error err = plugin_config.initialize(re_instance_name);
+		CHECK_FALSE(err.ok());
+		CHECK(err.code() == KEY_TYPE_MISMATCH);
+		CHECK_FALSE(plugin_config.is_configured());
+		CHECK_FALSE(plugin_config.is_old_config());
+		CHECK_FALSE(plugin_config.amqp_config().is_initialized());
+		REQUIRE(plugin_config.failsafe_mode() == audit_amqp::plugin_config::defaults::failsafe_mode);
+	}
+
+	SECTION(fmt::format(FMT_COMPILE("{} bad_type"), audit_amqp::plugin_config::KW_FAILSAFE_MODE))
+	{
+		psc_json[audit_amqp::plugin_config::KW_FAILSAFE_MODE] = -123;
+		INFO("server config: " << server_config.dump(2));
+		irods::server_properties::instance().set_configuration(server_config);
+		const irods::error err = plugin_config.initialize(re_instance_name);
+		CHECK_FALSE(err.ok());
+		CHECK(err.code() == KEY_TYPE_MISMATCH);
+		CHECK_FALSE(plugin_config.is_configured());
+		CHECK_FALSE(plugin_config.is_old_config());
+		CHECK_FALSE(plugin_config.amqp_config().is_initialized());
+		REQUIRE(plugin_config.failsafe_mode() == audit_amqp::plugin_config::defaults::failsafe_mode);
+	}
+
+	SECTION(fmt::format(FMT_COMPILE("{} BLOCK_OPERATION"), audit_amqp::plugin_config::KW_FAILSAFE_MODE))
+	{
+		psc_json[audit_amqp::plugin_config::KW_FAILSAFE_MODE] = "BLOCK_OPERATION";
+		INFO("server config: " << server_config.dump(2));
+		irods::server_properties::instance().set_configuration(server_config);
+		const irods::error err = plugin_config.initialize(re_instance_name);
+		CHECK(err.ok());
+		CHECK(plugin_config.is_configured());
+		CHECK_FALSE(plugin_config.is_old_config());
+		REQUIRE(plugin_config.failsafe_mode() == audit_amqp::plugin_config::failsafe_mode::BLOCK_OPERATION);
+	}
+
+	SECTION(fmt::format(FMT_COMPILE("{} ALLOW_OPERATION"), audit_amqp::plugin_config::KW_FAILSAFE_MODE))
+	{
+		psc_json[audit_amqp::plugin_config::KW_FAILSAFE_MODE] = "ALLOW_OPERATION";
+		INFO("server config: " << server_config.dump(2));
+		irods::server_properties::instance().set_configuration(server_config);
+		const irods::error err = plugin_config.initialize(re_instance_name);
+		CHECK(err.ok());
+		CHECK(plugin_config.is_configured());
+		CHECK_FALSE(plugin_config.is_old_config());
+		REQUIRE(plugin_config.failsafe_mode() == audit_amqp::plugin_config::failsafe_mode::ALLOW_OPERATION);
+	}
+
+	SECTION(fmt::format(FMT_COMPILE("{} BLOCK_OPERATION+bad_config"), audit_amqp::plugin_config::KW_FAILSAFE_MODE))
+	{
+		psc_json[audit_amqp::plugin_config::KW_FAILSAFE_MODE] = "BLOCK_OPERATION";
+		psc_json[audit_amqp::amqp_config::KW_ENDPOINTS] = nullptr;
+		INFO("server config: " << server_config.dump(2));
+		irods::server_properties::instance().set_configuration(server_config);
+		const irods::error err = plugin_config.initialize(re_instance_name);
+		CHECK_FALSE(err.ok());
+		CHECK_FALSE(plugin_config.is_configured());
+		CHECK_FALSE(plugin_config.is_old_config());
+		CHECK_FALSE(plugin_config.amqp_config().is_initialized());
+		REQUIRE(plugin_config.failsafe_mode() == audit_amqp::plugin_config::failsafe_mode::BLOCK_OPERATION);
+	}
+
+	SECTION(fmt::format(FMT_COMPILE("{} ALLOW_OPERATION+bad_config"), audit_amqp::plugin_config::KW_FAILSAFE_MODE))
+	{
+		psc_json[audit_amqp::plugin_config::KW_FAILSAFE_MODE] = "ALLOW_OPERATION";
+		psc_json[audit_amqp::amqp_config::KW_ENDPOINTS] = nullptr;
+		INFO("server config: " << server_config.dump(2));
+		irods::server_properties::instance().set_configuration(server_config);
+		const irods::error err = plugin_config.initialize(re_instance_name);
+		CHECK_FALSE(err.ok());
+		CHECK_FALSE(plugin_config.is_configured());
+		CHECK_FALSE(plugin_config.is_old_config());
+		CHECK_FALSE(plugin_config.amqp_config().is_initialized());
+		REQUIRE(plugin_config.failsafe_mode() == audit_amqp::plugin_config::failsafe_mode::ALLOW_OPERATION);
+	}
+
+	SECTION(fmt::format(FMT_COMPILE("{} bad_value"), audit_amqp::plugin_config::KW_FAILSAFE_MODE))
+	{
+		psc_json[audit_amqp::plugin_config::KW_FAILSAFE_MODE] = "bad_value";
+		INFO("server config: " << server_config.dump(2));
+		irods::server_properties::instance().set_configuration(server_config);
+		const irods::error err = plugin_config.initialize(re_instance_name);
+		CHECK_FALSE(err.ok());
+		CHECK(err.code() == SYS_CONFIG_FILE_ERR);
+		CHECK_FALSE(plugin_config.is_configured());
+		CHECK_FALSE(plugin_config.is_old_config());
+		CHECK_FALSE(plugin_config.amqp_config().is_initialized());
+		REQUIRE(plugin_config.failsafe_mode() == audit_amqp::plugin_config::defaults::failsafe_mode);
+	}
+
 	SECTION(fmt::format(FMT_COMPILE("{} absent"), audit_amqp::plugin_config::KW_PEP_REGEX))
 	{
 		psc_json.erase(psc_json.find(audit_amqp::plugin_config::KW_PEP_REGEX));
@@ -208,6 +317,7 @@ TEST_CASE("plugin configuration loading")
 		CHECK_FALSE(plugin_config.is_configured());
 		CHECK_FALSE(plugin_config.is_old_config());
 		CHECK_FALSE(plugin_config.amqp_config().is_initialized());
+		CHECK_FALSE(plugin_config.pep_regex().has_value());
 	}
 
 	SECTION(fmt::format(FMT_COMPILE("{} null"), audit_amqp::plugin_config::KW_PEP_REGEX))
@@ -221,6 +331,7 @@ TEST_CASE("plugin configuration loading")
 		CHECK_FALSE(plugin_config.is_configured());
 		CHECK_FALSE(plugin_config.is_old_config());
 		CHECK_FALSE(plugin_config.amqp_config().is_initialized());
+		CHECK_FALSE(plugin_config.pep_regex().has_value());
 	}
 
 	SECTION(fmt::format(FMT_COMPILE("{} bad_type"), audit_amqp::plugin_config::KW_PEP_REGEX))
@@ -234,6 +345,7 @@ TEST_CASE("plugin configuration loading")
 		CHECK_FALSE(plugin_config.is_configured());
 		CHECK_FALSE(plugin_config.is_old_config());
 		CHECK_FALSE(plugin_config.amqp_config().is_initialized());
+		CHECK_FALSE(plugin_config.pep_regex().has_value());
 	}
 
 	SECTION(fmt::format(FMT_COMPILE("{} populated"), audit_amqp::plugin_config::KW_PEP_REGEX))
@@ -246,6 +358,21 @@ TEST_CASE("plugin configuration loading")
 		CHECK(plugin_config.is_configured());
 		CHECK_FALSE(plugin_config.is_old_config());
 		CHECK(plugin_config.amqp_config().is_initialized());
+		CHECK(plugin_config.pep_regex().has_value());
+	}
+
+	SECTION(fmt::format(FMT_COMPILE("{} populated+bad_config"), audit_amqp::plugin_config::KW_PEP_REGEX))
+	{
+		psc_json[audit_amqp::plugin_config::KW_PEP_REGEX] = "audit_.+";
+		psc_json[audit_amqp::amqp_config::KW_ENDPOINTS] = nullptr;
+		INFO("server config: " << server_config.dump(2));
+		irods::server_properties::instance().set_configuration(server_config);
+		const irods::error err = plugin_config.initialize(re_instance_name);
+		CHECK_FALSE(err.ok());
+		CHECK_FALSE(plugin_config.is_configured());
+		CHECK_FALSE(plugin_config.is_old_config());
+		CHECK_FALSE(plugin_config.amqp_config().is_initialized());
+		CHECK(plugin_config.pep_regex().has_value());
 	}
 
 	SECTION(fmt::format(FMT_COMPILE("{} bad_value"), audit_amqp::plugin_config::KW_PEP_REGEX))
@@ -259,6 +386,7 @@ TEST_CASE("plugin configuration loading")
 		CHECK_FALSE(plugin_config.is_configured());
 		CHECK_FALSE(plugin_config.is_old_config());
 		CHECK_FALSE(plugin_config.amqp_config().is_initialized());
+		CHECK_FALSE(plugin_config.pep_regex().has_value());
 	}
 
 	SECTION(fmt::format(FMT_COMPILE("{} absent"), audit_amqp::amqp_config::KW_ENDPOINTS))
@@ -6159,6 +6287,98 @@ TEST_CASE("plugin configuration loading")
 		CHECK_FALSE(plugin_config.is_old_config());
 		CHECK_FALSE(plugin_config.amqp_config().is_initialized());
 	}
-	// NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 }
-// NOLINTEND(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+
+TEST_CASE("failed second load")
+{
+	irods::experimental::log::init(getpid(), false, false);
+
+	nlohmann::json server_config = server_config_init;
+
+	auto& plugin_config_json =
+		server_config[irods::KW_CFG_PLUGIN_CONFIGURATION][irods::KW_CFG_PLUGIN_TYPE_RULE_ENGINE][1];
+	auto& psc_json = plugin_config_json[irods::KW_CFG_PLUGIN_SPECIFIC_CONFIGURATION];
+
+	psc_json[audit_amqp::plugin_config::KW_FAILSAFE_MODE] = "ALLOW_OPERATION";
+	psc_json[audit_amqp::amqp_config::KW_PATH] = "queues/amqp_audit_events";
+
+	audit_amqp::plugin_config plugin_config;
+
+	INFO("initial server config: " << server_config.dump(2));
+	irods::server_properties::instance().set_configuration(server_config);
+	irods::error err = plugin_config.initialize(re_instance_name);
+	CHECK(err.ok());
+	CHECK(plugin_config.is_configured());
+	CHECK_FALSE(plugin_config.is_old_config());
+	CHECK(plugin_config.amqp_config().is_initialized());
+	CHECK(plugin_config.failsafe_mode() == audit_amqp::plugin_config::failsafe_mode::ALLOW_OPERATION);
+	CHECK(plugin_config.amqp_config().path() == "/queues/amqp_audit_events");
+
+	SECTION("previous config preservation")
+	{
+		psc_json[audit_amqp::amqp_config::KW_ENDPOINTS] = nullptr;
+		INFO("second load server config: " << server_config.dump(2));
+		irods::server_properties::instance().set_configuration(server_config);
+		err = plugin_config.initialize(re_instance_name);
+		CHECK_FALSE(err.ok());
+		CHECK(plugin_config.is_configured());
+		CHECK(plugin_config.is_old_config());
+		CHECK(plugin_config.failsafe_mode() == audit_amqp::plugin_config::failsafe_mode::ALLOW_OPERATION);
+		CHECK(plugin_config.amqp_config().path() == "/queues/amqp_audit_events");
+	}
+
+	SECTION(fmt::format(FMT_COMPILE("{} preserve on {} ALLOW_OPERATION"),
+	                    audit_amqp::plugin_config::KW_PEP_REGEX,
+	                    audit_amqp::plugin_config::KW_FAILSAFE_MODE))
+	{
+		psc_json[audit_amqp::plugin_config::KW_PEP_REGEX] = nullptr;
+		INFO("second load server config: " << server_config.dump(2));
+		irods::server_properties::instance().set_configuration(server_config);
+		err = plugin_config.initialize(re_instance_name);
+		CHECK_FALSE(err.ok());
+		CHECK(plugin_config.is_configured());
+		CHECK(plugin_config.is_old_config());
+		CHECK(plugin_config.failsafe_mode() == audit_amqp::plugin_config::failsafe_mode::ALLOW_OPERATION);
+		CHECK(plugin_config.amqp_config().path() == "/queues/amqp_audit_events");
+		CHECK(plugin_config.pep_regex().has_value());
+	}
+
+	SECTION(fmt::format(FMT_COMPILE("{} discard on {} BLOCK_OPERATION"),
+	                    audit_amqp::plugin_config::KW_PEP_REGEX,
+	                    audit_amqp::plugin_config::KW_FAILSAFE_MODE))
+	{
+		psc_json[audit_amqp::plugin_config::KW_FAILSAFE_MODE] = "BLOCK_OPERATION";
+		psc_json[audit_amqp::plugin_config::KW_PEP_REGEX] = nullptr;
+		INFO("second load server config: " << server_config.dump(2));
+		irods::server_properties::instance().set_configuration(server_config);
+		err = plugin_config.initialize(re_instance_name);
+		CHECK_FALSE(err.ok());
+		CHECK(plugin_config.is_configured());
+		CHECK(plugin_config.is_old_config());
+		CHECK(plugin_config.failsafe_mode() == audit_amqp::plugin_config::failsafe_mode::BLOCK_OPERATION);
+		CHECK(plugin_config.amqp_config().path() == "/queues/amqp_audit_events");
+		CHECK_FALSE(plugin_config.pep_regex().has_value());
+	}
+
+	SECTION("third config success")
+	{
+		psc_json[audit_amqp::plugin_config::KW_PEP_REGEX] = nullptr;
+		INFO("second load server config: " << server_config.dump(2));
+		irods::server_properties::instance().set_configuration(server_config);
+		err = plugin_config.initialize(re_instance_name);
+		CHECK_FALSE(err.ok());
+		CHECK(plugin_config.is_configured());
+		CHECK(plugin_config.is_old_config());
+
+		psc_json[audit_amqp::plugin_config::KW_PEP_REGEX] = "audit_.+";
+		INFO("third load server config: " << server_config.dump(2));
+		irods::server_properties::instance().set_configuration(server_config);
+		err = plugin_config.initialize(re_instance_name);
+		CHECK(err.ok());
+		CHECK(plugin_config.is_configured());
+		CHECK_FALSE(plugin_config.is_old_config());
+		CHECK(plugin_config.amqp_config().is_initialized());
+		CHECK(plugin_config.pep_regex().has_value());
+	}
+}
+// NOLINTEND(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)

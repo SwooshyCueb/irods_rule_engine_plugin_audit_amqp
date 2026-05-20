@@ -12,6 +12,7 @@
 #include <nlohmann/json.hpp>
 
 #include <exception>
+#include <optional>
 #include <regex>
 #include <stdexcept>
 #include <string>
@@ -37,16 +38,75 @@ namespace irods::plugin::rule_engine::audit_amqp
 	irods::error plugin_config::load_configuration(const nlohmann::json& _plugin_specific_configuration,
 	                                               const std::string& _re_instance_name)
 	{
-		const auto& new_pep_regex_str = _plugin_specific_configuration.at(KW_PEP_REGEX).get_ref<const std::string&>();
+		// This is a bit weird, as we want to attempt loading failsafe mode and pep regex regardless of whether or not
+		// the rest of the configuration loads successfully, but for all other configuration options, we want to
+		// preserve the previous values if *any* part of the configuration fails to load.
 
-		std::regex new_pep_regex;
+		irods::error ret = SUCCESS();
+		std::exception_ptr rethrow_e;
+
 		try {
+			const auto failsafe_mode_cfg = _plugin_specific_configuration.find(KW_FAILSAFE_MODE);
+			if (failsafe_mode_cfg == _plugin_specific_configuration.end()) {
+				// clang-format off
+				log_re::warn({
+					{"rule_engine_plugin", rule_engine_name},
+					{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
+					{"log_message",
+					 fmt::format(FMT_COMPILE("{} absent from configuration. This will be a required setting in future "
+					                         "versions of the plugin"),
+								 KW_FAILSAFE_MODE)},
+				});
+				// clang-format on
+				failsafe_mode_ = defaults::failsafe_mode;
+			}
+			else {
+				const std::string& failsafe_mode = failsafe_mode_cfg->get_ref<const std::string&>();
+				if (failsafe_mode == "BLOCK_OPERATION") {
+					failsafe_mode_ = plugin_config::failsafe_mode::BLOCK_OPERATION;
+				}
+				else if (failsafe_mode == "ALLOW_OPERATION") {
+					failsafe_mode_ = plugin_config::failsafe_mode::ALLOW_OPERATION;
+				}
+				else {
+					// clang-format off
+					log_re::error({
+						{"rule_engine_plugin", rule_engine_name},
+						{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
+						{"log_message",
+						 fmt::format(FMT_COMPILE("{} must be one of [BLOCK_OPERATION, ALLOW_OPERATION]."),
+						             KW_FAILSAFE_MODE)},
+						{KW_FAILSAFE_MODE, failsafe_mode},
+					});
+					// clang-format on
+					failsafe_mode_ = defaults::failsafe_mode;
+					ret = ERROR(
+						SYS_CONFIG_FILE_ERR, fmt::format(FMT_COMPILE("Unrecognized {} value."), KW_FAILSAFE_MODE));
+				}
+			}
+		}
+		catch (...) {
+			// clang-format off
+			log_re::error({
+				{"rule_engine_plugin", rule_engine_name},
+				{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
+				{"log_message",
+				 fmt::format(FMT_COMPILE("Error while parsing {}."),
+				             KW_FAILSAFE_MODE)},
+			});
+			// clang-format on
+			failsafe_mode_ = defaults::failsafe_mode;
+			rethrow_e = std::current_exception();
+		}
+
+		std::string new_pep_regex_str;
+		try {
+			new_pep_regex_str = _plugin_specific_configuration.at(KW_PEP_REGEX).get_ref<const std::string&>();
+			std::regex new_pep_regex;
 			new_pep_regex = std::regex(new_pep_regex_str, pep_regex_flags_);
+			pep_regex_ = new_pep_regex;
 		}
 		catch (const std::regex_error& e) {
-			if (is_configured_) {
-				is_old_config_ = true;
-			}
 			// clang-format off
 			log_re::error({
 				{"rule_engine_plugin", rule_engine_name},
@@ -56,8 +116,45 @@ namespace irods::plugin::rule_engine::audit_amqp
 				{"std::regex_error.code()", std::to_string(e.code())},
 				{KW_PEP_REGEX, new_pep_regex_str}
 			});
+			if (failsafe_mode_ == failsafe_mode::BLOCK_OPERATION) {
+				// discard previous value if we are to block operations
+				pep_regex_ = defaults::pep_regex;
+			}
 			// clang-format on
-			return ERROR(INVALID_REGEXP, "Failed to compile pep regex");
+			if (ret.ok() && !rethrow_e) {
+				ret = ERROR(INVALID_REGEXP, "Failed to compile pep regex");
+			}
+		}
+		catch (...) {
+			// clang-format off
+			log_re::error({
+				{"rule_engine_plugin", rule_engine_name},
+				{irods::KW_CFG_INSTANCE_NAME, _re_instance_name},
+				{"log_message", fmt::format(FMT_COMPILE("Error while parsing {}."), KW_PEP_REGEX)},
+			});
+			// clang-format on
+			if (failsafe_mode_ == failsafe_mode::BLOCK_OPERATION) {
+				// discard previous value if we are to block operations
+				pep_regex_ = defaults::pep_regex;
+			}
+			if (ret.ok() && !rethrow_e) {
+				// favor error from failsafe mode
+				rethrow_e = std::current_exception();
+			}
+		}
+
+		if (rethrow_e) {
+			if (is_configured_) {
+				is_old_config_ = true;
+			}
+			std::rethrow_exception(rethrow_e);
+		}
+
+		if (!ret.ok()) {
+			if (is_configured_) {
+				is_old_config_ = true;
+			}
+			return ret;
 		}
 
 		class amqp_config new_amqp_config;
@@ -93,7 +190,6 @@ namespace irods::plugin::rule_engine::audit_amqp
 			new_test_mode_log_path_prefix = log_path_prefix_cfg->get_ref<const std::string&>();
 		}
 
-		pep_regex_ = new_pep_regex;
 		test_mode_enabled_ = new_test_mode_enabled;
 		test_mode_log_path_prefix_ = new_test_mode_log_path_prefix;
 		amqp_config_ = new_amqp_config;

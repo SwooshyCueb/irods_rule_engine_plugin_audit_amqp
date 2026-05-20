@@ -9,6 +9,7 @@ def main():
                 "instance_name": "irods_rule_engine_plugin-audit_amqp-instance",
                 "plugin_name": "irods_rule_engine_plugin-audit_amqp",
                 "plugin_specific_configuration": {
+                    "failsafe_mode": "ALLOW_OPERATION",
                     "pep_regex_to_match": "audit_.*",
                     "amqp_endpoints": [
                         {

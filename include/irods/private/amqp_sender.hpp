@@ -45,10 +45,10 @@ namespace irods::plugin::rule_engine::audit_amqp
 		[[nodiscard]] constexpr bool is_open() const { return is_open_; }
 		[[nodiscard]] constexpr const std::string& re_instance_name() const { return re_instance_name_; }
 
-		void send_message(nlohmann::json& _message_body,
-		                  const std::uint64_t _timestamp_ms,
-		                  const pid_t _pid,
-		                  std::ofstream& _test_log_ofstream);
+		irods::error send_message(nlohmann::json& _message_body,
+		                          const std::uint64_t _timestamp_ms,
+		                          const pid_t _pid,
+		                          std::ofstream& _test_log_ofstream);
 
 		void on_container_start(proton::container& _container) override;
 		void on_transport_error(proton::transport& _transport) override;

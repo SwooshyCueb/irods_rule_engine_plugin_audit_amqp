@@ -39,14 +39,29 @@ The JSON block below represents all supported configuration options in `plugin_s
 > [!NOTE]
 > Starting with @VERSION@, we expose most of the Qpid Proton settings as configuration options prefixed with `amqp_` in the plugin configuration. In the interest of not making the plugin more complicated than it already is, most of these configuration options coorespond directly or almost directly with a Qpid Proton setting. If more insight is needed into a configuration option than is provided here, [Qpid Proton's C++ API documentation](https://qpid.apache.org/releases/qpid-proton-0.36.0/proton/cpp/api/annotated.html) may be helpful. 
 
+> [!NOTE]
+> If configuration loading fails during a reload, the values from the previous successfully loaded configuration will be used except where otherwise noted.
+
 > [!IMPORTANT]
 > The comments in the following JSON block are present in this README for documentation puposes only. iRODS does not support comments in the server configuration file and will fail to load the configuration if any are present.
 
 ```js
 {
+    // How plugin failures should be handled. Must be one of the following:
+    // - `BLOCK_OPERATION`: Block operations matching pep_regex_to_match when audit messages cannot
+    //                      be sent or plugin is in an error state.
+    // - `ALLOW_OPERATION`: Allow operations to continue when audit messages cannot be sent or
+    //                      plugin is in an error state.
+    // Optional. Default is `BLOCK_OPERATION`. Will be required in a future version of the plugin.
+    // Previous value always discarded during reload. If this option fails to load, the value will
+    // be assumed to be `BLOCK_OPERATION`.
+    "failsafe_mode": "BLOCK_OPERATION",
+
     // Regular expression to match PEPs to generate audit messages for.
     // Follows the C++ variant of EMCAScript grammar: https://en.cppreference.com/w/cpp/regex/ecmascript.html
-    // REQUIRED. Fallback is `pep_.+`.
+    // REQUIRED. Previous value discarded during reload unless this option fails to load and
+    // `failsafe_mode` is `ALLOW_OPERATION`. Fallback is unset, which results in errors from
+    // `rule_exists`.
     "pep_regex_to_match": "pep_.+",
 
     // List of AMQP endpoints to send messages to. Must have at least one endpoint.
@@ -293,6 +308,7 @@ The JSON block below represents all supported configuration options in `plugin_s
     "instance_name": "irods_rule_engine_plugin-audit_amqp-instance",
     "plugin_name": "irods_rule_engine_plugin-audit_amqp",
     "plugin_specific_configuration": {
+        "failsafe_mode": "BLOCK_OPERATION",
         "pep_regex_to_match": "pep_.+",
         "amqp_endpoints": [
             {

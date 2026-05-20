@@ -28,17 +28,32 @@ using error_code_type = boost::system::error_code;
 
 namespace irods::plugin::rule_engine::audit_amqp
 {
+	/// \brief Class for plugin configuration
+	///
+	/// See README.md for an explanation of each configuration option.
 	class plugin_config
 	{
 	  public:
+		enum class failsafe_mode
+		{
+			BLOCK_OPERATION,
+			ALLOW_OPERATION
+		};
+
+		/// \brief Class containing configuration defaults and fallbacks.
+		///
+		/// \note
+		/// For required configuration options, the value here is the fallback value.
 		class defaults
 		{
 		  public:
 			defaults() = delete;
 
+			static constexpr const enum failsafe_mode failsafe_mode = failsafe_mode::BLOCK_OPERATION;
+
+			static constexpr const auto pep_regex = std::nullopt;
 			static constexpr const std::regex::flag_type pep_regex_flags =
 				std::regex::ECMAScript | std::regex::optimize;
-			static constexpr const std::string pep_regex = "pep_.+";
 
 			static constexpr const bool test_mode_enabled = false;
 		};
@@ -52,8 +67,10 @@ namespace irods::plugin::rule_engine::audit_amqp
 			is_configured_ = false;
 			is_old_config_ = false;
 
+			failsafe_mode_ = defaults::failsafe_mode;
+
+			pep_regex_ = defaults::pep_regex;
 			pep_regex_flags_ = defaults::pep_regex_flags;
-			pep_regex_ = std::regex(defaults::pep_regex, pep_regex_flags_);
 
 			test_mode_enabled_ = defaults::test_mode_enabled;
 			test_mode_log_path_prefix_ = fs::temp_directory_path();
@@ -65,7 +82,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 		[[nodiscard]] constexpr bool is_old_config() const { return is_old_config_; }
 
 		// NOLINTBEGIN(readability-const-return-type)
-		[[nodiscard]] constexpr const std::regex& pep_regex() const { return pep_regex_; }
+		[[nodiscard]] constexpr enum failsafe_mode failsafe_mode() const { return failsafe_mode_; }
+		[[nodiscard]] constexpr const std::optional<std::regex>& pep_regex() const { return pep_regex_; }
 		[[nodiscard]] constexpr bool test_mode_enabled() const { return test_mode_enabled_; }
 		[[nodiscard]] constexpr const fs::path& test_mode_log_path_prefix() const { return test_mode_log_path_prefix_; }
 		[[nodiscard]] constexpr const amqp_config& amqp_config() const { return amqp_config_; }
@@ -82,6 +100,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			return *default_instance_;
 		}
 
+		static constexpr const char* const KW_FAILSAFE_MODE = "failsafe_mode";
 		static constexpr const char* const KW_PEP_REGEX = "pep_regex_to_match";
 		static constexpr const char* const KW_TEST_MODE = "test_mode";
 		static constexpr const char* const KW_TEST_MODE_LOG_PATH_PREFIX = "log_path_prefix";
@@ -93,8 +112,10 @@ namespace irods::plugin::rule_engine::audit_amqp
 		bool is_configured_{false};
 		bool is_old_config_{false};
 
+		enum failsafe_mode failsafe_mode_;
+
 		std::regex::flag_type pep_regex_flags_;
-		std::regex pep_regex_;
+		std::optional<std::regex> pep_regex_;
 
 		bool test_mode_enabled_;
 		fs::path test_mode_log_path_prefix_;

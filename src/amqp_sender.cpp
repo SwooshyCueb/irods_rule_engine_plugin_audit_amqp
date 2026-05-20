@@ -44,10 +44,7 @@
 
 namespace irods::plugin::rule_engine::audit_amqp
 {
-	amqp_sender::amqp_sender()
-		: is_open_(false)
-		, connection_sem_(0)
-	{ }
+	amqp_sender::amqp_sender() : is_open_(false), connection_sem_(0) {}
 
 	amqp_sender::~amqp_sender()
 	{
@@ -371,12 +368,14 @@ namespace irods::plugin::rule_engine::audit_amqp
 		proton_thread_.reset();
 	}
 
-	void amqp_sender::send_message(nlohmann::json& _message_body,
-	                               const std::uint64_t _timestamp_ms,
-	                               const pid_t _pid,
-	                               std::ofstream& _test_log_ofstream)
+	irods::error amqp_sender::send_message(nlohmann::json& _message_body,
+	                                       const std::uint64_t _timestamp_ms,
+	                                       const pid_t _pid,
+	                                       std::ofstream& _test_log_ofstream)
 	{
 		const std::scoped_lock<std::mutex> send_lock(amqp_send_mutex_);
+
+		irods::error ret = SUCCESS();
 
 		if (!(is_open_ && sender_.has_value())) {
 			THROW(SYS_UNINITIALIZED, "send_message called on closed amqp_sender");
@@ -448,6 +447,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 						{"log_message", "Reached timeout while sending AMQP message."}
 					});
 					// clang-format on
+					ret = ERROR(RE_RUNTIME_ERROR, "Reached timeout while sending AMQP message.");
 				}
 			}
 			else {
@@ -488,6 +488,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 				// clang-format on
 			}
 		}
+
+		return ret;
 	}
 
 	void amqp_sender::on_container_start([[maybe_unused]] proton::container& _container)
