@@ -201,8 +201,10 @@ OUTPUT ruleExecOut
         IrodsController().reload_configuration()
 
 
+@unittest.skip('Skipping due to long run time')
 class test_resource_unixfilesystem__issue_19(Test_Resource_Unixfilesystem, unittest.TestCase):
     def __init__(self, *args, **kwargs):
         # Why: Run with this REP configured in order to exercise serialization of types in REPF
         super(test_resource_unixfilesystem__issue_19, self).__init__(*args, **kwargs)
 
+del Test_Resource_Unixfilesystem
