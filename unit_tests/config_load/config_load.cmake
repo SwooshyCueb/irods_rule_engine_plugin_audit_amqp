@@ -15,7 +15,7 @@ set(
 
 set(
   IRODS_TEST_LINK_OBJLIBRARIES
-  ${PLUGIN}_obj
+  ${IRODS_PLUGIN_FULL_NAME}_obj
 )
 
 set(

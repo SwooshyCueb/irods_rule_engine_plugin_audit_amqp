@@ -31,6 +31,7 @@ enable_testing()
 
 function(add_irods_unit_test test_name)
   include("${CMAKE_CURRENT_SOURCE_DIR}/${test_name}/${test_name}.cmake")
+  set(IRODS_TEST_TARGET "${IRODS_RULE_ENGINE_PLUGIN_NAME}-${IRODS_TEST_TARGET}")
   add_executable(
     ${IRODS_TEST_TARGET}
     ${IRODS_TEST_SOURCE_FILES}
