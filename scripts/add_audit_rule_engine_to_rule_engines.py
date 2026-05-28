@@ -38,6 +38,7 @@ def main():
             }
         )
     irods_config.server_config["rule_engine_namespaces"].append("audit_")
+    irods_config.server_config["log_level"]["rule_engine"] = "trace"
     irods_config.commit(irods_config.server_config, irods_config.server_config_path, make_backup=True)
 
 if __name__ == '__main__':
