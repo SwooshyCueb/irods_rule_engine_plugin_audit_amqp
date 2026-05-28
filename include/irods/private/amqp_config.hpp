@@ -47,13 +47,13 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 			static constexpr const std::string_view path{"/queues/irods_audit_messages"};
 
-			static constexpr const std::optional<std::string> user = std::nullopt;
-			static constexpr const std::optional<std::string> password = std::nullopt;
+			static constexpr const auto user = std::nullopt;
+			static constexpr const auto password = std::nullopt;
 
 			static constexpr const std::optional<std::uint32_t> connection_max_frame_size = std::nullopt;
 			static constexpr const std::optional<std::uint16_t> connection_max_sessions = std::nullopt;
 			static constexpr const auto connection_idle_timeout = std::nullopt;
-			static constexpr const std::optional<std::string> connection_virtual_host = std::nullopt;
+			static constexpr const auto connection_virtual_host = std::nullopt;
 			static constexpr const std::chrono::milliseconds connection_open_timeout{30000};
 			static constexpr const std::chrono::milliseconds connection_close_timeout{10000};
 			static constexpr const auto reconnect_delay = std::nullopt;
@@ -62,20 +62,20 @@ namespace irods::plugin::rule_engine::audit_amqp
 			static constexpr const std::optional<int> reconnect_max_attempts = std::nullopt;
 
 			static constexpr const std::optional<enum proton::ssl::verify_mode> ssl_verify_mode = std::nullopt;
-			static constexpr const std::optional<std::string> ssl_trust_db = std::nullopt;
-			static constexpr const std::optional<std::string> ssl_certdb_main = std::nullopt;
-			static constexpr const std::optional<std::string> ssl_certdb_extra = std::nullopt;
-			static constexpr const std::optional<std::string> ssl_cert_password = std::nullopt;
+			static constexpr const auto ssl_trust_db = std::nullopt;
+			static constexpr const auto ssl_certdb_main = std::nullopt;
+			static constexpr const auto ssl_certdb_extra = std::nullopt;
+			static constexpr const auto ssl_cert_password = std::nullopt;
 
 			static constexpr const std::optional<bool> sasl_enabled = std::nullopt;
-			static constexpr const std::optional<std::string> sasl_mechanisms = std::nullopt;
+			static constexpr const auto sasl_mechanisms = std::nullopt;
 			static constexpr const std::optional<bool> sasl_allow_insecure = std::nullopt;
 
 			static constexpr const std::optional<enum proton::delivery_mode::modes> sender_delivery_mode = std::nullopt;
 			static constexpr const std::optional<bool> sender_auto_settle = std::nullopt;
 			static constexpr const std::chrono::milliseconds sender_close_timeout{30000};
 
-			static constexpr const std::optional<std::string> sender_source_address = std::nullopt;
+			static constexpr const auto sender_source_address = std::nullopt;
 			static constexpr const std::optional<bool> sender_source_dynamic = std::nullopt;
 			static constexpr const std::optional<bool> sender_source_anonymous = std::nullopt;
 			static constexpr const std::optional<enum proton::source::distribution_mode> sender_source_distribution_mode = std::nullopt;
@@ -83,7 +83,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			static constexpr const auto sender_source_timeout = std::nullopt;
 			static constexpr const std::optional<enum proton::source::expiry_policy> sender_source_expiry_policy = std::nullopt;
 
-			static constexpr const std::optional<std::string> sender_target_address = std::nullopt;
+			static constexpr const auto sender_target_address = std::nullopt;
 			static constexpr const std::optional<bool> sender_target_dynamic = std::nullopt;
 			static constexpr const std::optional<bool> sender_target_anonymous = std::nullopt;
 			static constexpr const std::optional<enum proton::target::durability_mode> sender_target_durability_mode =
