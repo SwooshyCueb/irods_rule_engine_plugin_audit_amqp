@@ -5,11 +5,15 @@
 
 #include <irods/irods_error.hpp>
 
+#include <fmt/format.h>
+#include <fmt/compile.h>
+
 #include <nlohmann/json.hpp>
 
 #include <optional>
 #include <regex>
 #include <string>
+#include <type_traits>
 
 // filesystem
 // clang-format off
@@ -125,5 +129,35 @@ namespace irods::plugin::rule_engine::audit_amqp
 		static std::optional<plugin_config> default_instance_;
 	};
 } //namespace irods::plugin::rule_engine::audit_amqp
+
+// NOLINTBEGIN(clazy-function-args-by-value, readability-convert-member-functions-to-static)
+template <>
+struct fmt::formatter<enum irods::plugin::rule_engine::audit_amqp::plugin_config::failsafe_mode>
+	: fmt::formatter<std::string_view>
+{
+	template <typename FormatContext>
+	constexpr auto format(const enum irods::plugin::rule_engine::audit_amqp::plugin_config::failsafe_mode& _mode,
+	                      FormatContext& _ctx) const -> decltype(_ctx.out())
+	{
+		std::string_view valstr;
+		switch (_mode) {
+			case irods::plugin::rule_engine::audit_amqp::plugin_config::failsafe_mode::BLOCK_OPERATION:
+				valstr = "BLOCK_OPERATION";
+				break;
+			case irods::plugin::rule_engine::audit_amqp::plugin_config::failsafe_mode::ALLOW_OPERATION:
+				valstr = "ALLOW_OPERATION";
+				break;
+			default:
+				return format_to(
+					_ctx.out(),
+					FMT_COMPILE("UNKNOWN_{}"),
+					static_cast<std::underlying_type_t<
+						enum irods::plugin::rule_engine::audit_amqp::plugin_config::failsafe_mode>>(_mode));
+				break;
+		}
+		return fmt::formatter<std::string_view>::format(valstr, _ctx);
+	}
+};
+// NOLINTEND(clazy-function-args-by-value, readability-convert-member-functions-to-static)
 
 #endif // IRODS_AUDIT_AUDIT_CONFIG_HPP

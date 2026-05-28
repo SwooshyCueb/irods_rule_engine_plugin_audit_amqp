@@ -85,6 +85,7 @@ set(
   "${CMAKE_CURRENT_SOURCE_DIR}/include/irods/private/audit_amqp.hpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/include/irods/private/audit_config.hpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/include/irods/private/audit_b64enc.hpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/irods/private/proton_formatters.hpp"
 )
 set(
   ${IRODS_PLUGIN_FULL_NAME}_HEADERS_GENERATORS
