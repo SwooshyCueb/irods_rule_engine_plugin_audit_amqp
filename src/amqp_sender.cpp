@@ -27,6 +27,7 @@
 #include <proton/tracker.hpp>
 #include <proton/transport.hpp>
 #include <proton/work_queue.hpp>
+#include <proton/uuid.hpp>
 
 #include <sys/types.h>
 
@@ -139,8 +140,18 @@ namespace irods::plugin::rule_engine::audit_amqp
 		sender_opts.handler(*this);
 		amqp_config_.configure_sender(sender_opts);
 
-		container_.emplace(*this);
+		const std::string container_id = proton::uuid::random().str();
+		container_.emplace(*this, container_id);
 		proton::container& container = *container_;
+
+		// clang-format off
+		log_re::trace({
+			{"rule_engine_plugin", rule_engine_name},
+			{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
+			{"log_message", "Container constructed."},
+			{"proton_container::id", container_id},
+		});
+		// clang-format on
 
 		container.client_connection_options(conn_opts);
 		container.sender_options(sender_opts);
