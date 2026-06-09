@@ -298,7 +298,11 @@ namespace irods::plugin::rule_engine::audit_amqp
 				}
 			}
 
-			audit_amqp_sender.send_message(json_obj, time_ms, pid, log_file_ofstream);
+			const auto err = audit_amqp_sender.send_message(json_obj, time_ms, pid, log_file_ofstream);
+			if (!err.ok()) {
+				error_state = SUCCESS();
+				return err;
+			}
 		}
 		catch (const irods::exception& e) {
 			const std::string e_what = e.what();
@@ -382,8 +386,11 @@ namespace irods::plugin::rule_engine::audit_amqp
 				json_obj["log_file"] = log_file_path;
 			}
 
-			audit_amqp_sender.send_message(json_obj, time_ms, getpid(), log_file_ofstream);
+			const auto err = audit_amqp_sender.send_message(json_obj, time_ms, getpid(), log_file_ofstream);
 			audit_amqp_sender.close();
+			if (!err.ok()) {
+				return err;
+			}
 		}
 		catch (const irods::exception& e) {
 			const std::string e_what = e.what();

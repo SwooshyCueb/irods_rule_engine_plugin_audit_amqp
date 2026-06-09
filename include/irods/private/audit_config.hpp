@@ -62,9 +62,9 @@ namespace irods::plugin::rule_engine::audit_amqp
 			static constexpr const bool test_mode_enabled = false;
 		};
 
-		irods::error initialize(const nlohmann::json& _plugin_specific_configuration,
-		                        const std::string& _re_instance_name);
-		irods::error initialize(const std::string& _re_instance_name);
+		[[nodiscard]] irods::error initialize(const nlohmann::json& _plugin_specific_configuration,
+		                                      const std::string& _re_instance_name);
+		[[nodiscard]] irods::error initialize(const std::string& _re_instance_name);
 
 		void initialize_from_defaults()
 		{
@@ -93,7 +93,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		[[nodiscard]] constexpr const amqp_config& amqp_config() const { return amqp_config_; }
 		// NOLINTEND(readability-const-return-type)
 
-		static const plugin_config& default_config()
+		[[nodiscard]] static const plugin_config& default_config()
 		{
 			if (!default_instance_.has_value()) {
 				plugin_config config;
@@ -110,8 +110,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 		static constexpr const char* const KW_TEST_MODE_LOG_PATH_PREFIX = "log_path_prefix";
 
 	  private:
-		irods::error load_configuration(const nlohmann::json& _plugin_specific_configuration,
-		                                const std::string& _re_instance_name);
+		[[nodiscard]] irods::error load_configuration(const nlohmann::json& _plugin_specific_configuration,
+		                                              const std::string& _re_instance_name);
 
 		bool is_configured_{false};
 		bool is_old_config_{false};
