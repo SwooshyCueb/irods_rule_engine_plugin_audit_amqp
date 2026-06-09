@@ -35,20 +35,20 @@ namespace irods::plugin::rule_engine::audit_amqp
 		amqp_sender();
 		~amqp_sender() override;
 
-		irods::error configure(const std::string& _re_instance_name, const amqp_config& _amqp_config);
-		irods::error unconfigure();
+		[[nodiscard]] irods::error configure(const std::string& _re_instance_name, const amqp_config& _amqp_config);
+		[[nodiscard]] irods::error unconfigure();
 
-		irods::error open();
+		[[nodiscard]] irods::error open();
 		void close();
 
 		[[nodiscard]] constexpr bool is_configured() const { return amqp_config_.is_initialized(); }
 		[[nodiscard]] constexpr bool is_open() const { return is_open_; }
 		[[nodiscard]] constexpr const std::string& re_instance_name() const { return re_instance_name_; }
 
-		irods::error send_message(nlohmann::json& _message_body,
-		                          const std::uint64_t _timestamp_ms,
-		                          const pid_t _pid,
-		                          std::ofstream& _test_log_ofstream);
+		[[nodiscard]] irods::error send_message(nlohmann::json& _message_body,
+		                                        const std::uint64_t _timestamp_ms,
+		                                        const pid_t _pid,
+		                                        std::ofstream& _test_log_ofstream);
 
 		void on_container_start(proton::container& _container) override;
 		void on_transport_error(proton::transport& _transport) override;

@@ -97,8 +97,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 			static constexpr const std::chrono::milliseconds session_close_timeout{10000};
 		};
 
-		irods::error initialize(const nlohmann::json& _plugin_specific_configuration,
-		                        const std::string& _re_instance_name);
+		[[nodiscard]] irods::error initialize(const nlohmann::json& _plugin_specific_configuration,
+		                                      const std::string& _re_instance_name);
 
 		void configure_connection(proton::connection_options& _conn_opts, const std::string& _re_instance_name);
 		void configure_sender(proton::sender_options& _sender_opts);
@@ -265,7 +265,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		[[nodiscard]] constexpr const std::chrono::milliseconds session_close_timeout() const { return session_close_timeout_; }
 		// NOLINTEND(readability-const-return-type)
 
-		static const amqp_config& default_config()
+		[[nodiscard]] static const amqp_config& default_config()
 		{
 			if (!default_instance_.has_value()) {
 				amqp_config config;
