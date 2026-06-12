@@ -62,10 +62,10 @@ namespace irods::plugin::rule_engine::audit_amqp
 			}
 			else {
 				const std::string& failsafe_mode = failsafe_mode_cfg->get_ref<const std::string&>();
-				if (failsafe_mode == "BLOCK_OPERATION") {
+				if (boost::iequals(failsafe_mode, "BLOCK_OPERATION")) {
 					failsafe_mode_ = plugin_config::failsafe_mode::BLOCK_OPERATION;
 				}
-				else if (failsafe_mode == "ALLOW_OPERATION") {
+				else if (boost::iequals(failsafe_mode, "ALLOW_OPERATION")) {
 					failsafe_mode_ = plugin_config::failsafe_mode::ALLOW_OPERATION;
 				}
 				else {

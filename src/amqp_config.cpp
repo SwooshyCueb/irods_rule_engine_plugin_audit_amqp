@@ -379,13 +379,13 @@ namespace irods::plugin::rule_engine::audit_amqp
 			else if (!ssl_verify_mode_cfg->is_null()) {
 				const std::string& ssl_verify_mode = ssl_verify_mode_cfg->get_ref<const std::string&>();
 
-				if (ssl_verify_mode == "VERIFY_PEER") {
+				if (boost::iequals(ssl_verify_mode, "VERIFY_PEER")) {
 					ssl_verify_mode_ = proton::ssl::verify_mode::VERIFY_PEER;
 				}
-				else if (ssl_verify_mode == "ANONYMOUS_PEER") {
+				else if (boost::iequals(ssl_verify_mode, "ANONYMOUS_PEER")) {
 					ssl_verify_mode_ = proton::ssl::verify_mode::ANONYMOUS_PEER;
 				}
-				else if (ssl_verify_mode == "VERIFY_PEER_NAME") {
+				else if (boost::iequals(ssl_verify_mode, "VERIFY_PEER_NAME")) {
 					ssl_verify_mode_ = proton::ssl::verify_mode::VERIFY_PEER_NAME;
 				}
 				else {
@@ -793,13 +793,13 @@ namespace irods::plugin::rule_engine::audit_amqp
 			else if (!sender_delivery_mode_cfg->is_null()) {
 				const std::string& sender_delivery_mode = sender_delivery_mode_cfg->get_ref<const std::string&>();
 
-				if (sender_delivery_mode == "NONE") {
+				if (boost::iequals(sender_delivery_mode, "NONE")) {
 					sender_delivery_mode_.emplace(proton::delivery_mode::modes::NONE);
 				}
-				else if (sender_delivery_mode == "AT_MOST_ONCE") {
+				else if (boost::iequals(sender_delivery_mode, "AT_MOST_ONCE")) {
 					sender_delivery_mode_.emplace(proton::delivery_mode::modes::AT_MOST_ONCE);
 				}
-				else if (sender_delivery_mode == "AT_LEAST_ONCE") {
+				else if (boost::iequals(sender_delivery_mode, "AT_LEAST_ONCE")) {
 					sender_delivery_mode_.emplace(proton::delivery_mode::modes::AT_LEAST_ONCE);
 				}
 				else {
@@ -910,13 +910,13 @@ namespace irods::plugin::rule_engine::audit_amqp
 					const std::string& source_distribution_mode =
 						source_distribution_mode_cfg->get_ref<const std::string&>();
 
-					if (source_distribution_mode == "UNSPECIFIED") {
+					if (boost::iequals(source_distribution_mode, "UNSPECIFIED")) {
 						sender_source_distribution_mode_ = proton::source::distribution_mode::UNSPECIFIED;
 					}
-					else if (source_distribution_mode == "COPY") {
+					else if (boost::iequals(source_distribution_mode, "COPY")) {
 						sender_source_distribution_mode_ = proton::source::distribution_mode::COPY;
 					}
-					else if (source_distribution_mode == "MOVE") {
+					else if (boost::iequals(source_distribution_mode, "MOVE")) {
 						sender_source_distribution_mode_ = proton::source::distribution_mode::MOVE;
 					}
 					else {
@@ -948,13 +948,14 @@ namespace irods::plugin::rule_engine::audit_amqp
 					const std::string& source_durability_mode =
 						source_durability_mode_cfg->get_ref<const std::string&>();
 
-					if (source_durability_mode == "NONDURABLE") {
+					if (boost::iequals(source_durability_mode, "NONDURABLE")) {
 						sender_source_durability_mode_ = proton::source::durability_mode::NONDURABLE;
 					}
-					else if (source_durability_mode == "CONFIGURATION") {
+					else if (boost::iequals(source_durability_mode, "CONFIGURATION")) {
 						sender_source_durability_mode_ = proton::source::durability_mode::CONFIGURATION;
 					}
-					else if ((source_durability_mode == "UNSETTLED_STATE") or (source_durability_mode == "DELIVERIES"))
+					else if (boost::iequals(source_durability_mode, "UNSETTLED_STATE") ||
+					         boost::iequals(source_durability_mode, "DELIVERIES"))
 					{
 						sender_source_durability_mode_ = proton::source::durability_mode::UNSETTLED_STATE;
 					}
@@ -1012,16 +1013,16 @@ namespace irods::plugin::rule_engine::audit_amqp
 				else if (!source_expiry_policy_cfg->is_null()) {
 					const std::string& source_expiry_policy = source_expiry_policy_cfg->get_ref<const std::string&>();
 
-					if (source_expiry_policy == "LINK_CLOSE") {
+					if (boost::iequals(source_expiry_policy, "LINK_CLOSE")) {
 						sender_source_expiry_policy_ = proton::source::expiry_policy::LINK_CLOSE;
 					}
-					else if (source_expiry_policy == "SESSION_CLOSE") {
+					else if (boost::iequals(source_expiry_policy, "SESSION_CLOSE")) {
 						sender_source_expiry_policy_ = proton::source::expiry_policy::SESSION_CLOSE;
 					}
-					else if (source_expiry_policy == "CONNECTION_CLOSE") {
+					else if (boost::iequals(source_expiry_policy, "CONNECTION_CLOSE")) {
 						sender_source_expiry_policy_ = proton::source::expiry_policy::CONNECTION_CLOSE;
 					}
-					else if (source_expiry_policy == "NEVER") {
+					else if (boost::iequals(source_expiry_policy, "NEVER")) {
 						sender_source_expiry_policy_ = proton::source::expiry_policy::NEVER;
 					}
 					else {
@@ -1103,13 +1104,14 @@ namespace irods::plugin::rule_engine::audit_amqp
 					const std::string& target_durability_mode =
 						target_durability_mode_cfg->get_ref<const std::string&>();
 
-					if (target_durability_mode == "NONDURABLE") {
+					if (boost::iequals(target_durability_mode, "NONDURABLE")) {
 						sender_target_durability_mode_ = proton::target::durability_mode::NONDURABLE;
 					}
-					else if (target_durability_mode == "CONFIGURATION") {
+					else if (boost::iequals(target_durability_mode, "CONFIGURATION")) {
 						sender_target_durability_mode_ = proton::target::durability_mode::CONFIGURATION;
 					}
-					else if ((target_durability_mode == "UNSETTLED_STATE") or (target_durability_mode == "DELIVERIES"))
+					else if (boost::iequals(target_durability_mode, "UNSETTLED_STATE") ||
+					         boost::iequals(target_durability_mode, "DELIVERIES"))
 					{
 						sender_target_durability_mode_ = proton::target::durability_mode::UNSETTLED_STATE;
 					}
@@ -1167,16 +1169,16 @@ namespace irods::plugin::rule_engine::audit_amqp
 				else if (!target_expiry_policy_cfg->is_null()) {
 					const std::string& target_expiry_policy = target_expiry_policy_cfg->get_ref<const std::string&>();
 
-					if (target_expiry_policy == "LINK_CLOSE") {
+					if (boost::iequals(target_expiry_policy, "LINK_CLOSE")) {
 						sender_target_expiry_policy_ = proton::target::expiry_policy::LINK_CLOSE;
 					}
-					else if (target_expiry_policy == "SESSION_CLOSE") {
+					else if (boost::iequals(target_expiry_policy, "SESSION_CLOSE")) {
 						sender_target_expiry_policy_ = proton::target::expiry_policy::SESSION_CLOSE;
 					}
-					else if (target_expiry_policy == "CONNECTION_CLOSE") {
+					else if (boost::iequals(target_expiry_policy, "CONNECTION_CLOSE")) {
 						sender_target_expiry_policy_ = proton::target::expiry_policy::CONNECTION_CLOSE;
 					}
-					else if (target_expiry_policy == "NEVER") {
+					else if (boost::iequals(target_expiry_policy, "NEVER")) {
 						sender_target_expiry_policy_ = proton::target::expiry_policy::NEVER;
 					}
 					else {

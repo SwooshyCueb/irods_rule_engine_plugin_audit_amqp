@@ -47,7 +47,7 @@ The JSON block below represents all supported configuration options in `plugin_s
 
 ```js
 {
-    // How plugin failures should be handled. Must be one of the following:
+    // How plugin failures should be handled. Must be one of the following (case-insensitive):
     // - `BLOCK_OPERATION`: Block operations matching pep_regex_to_match when audit messages cannot
     //                      be sent or plugin is in an error state.
     // - `ALLOW_OPERATION`: Allow operations to continue when audit messages cannot be sent or
@@ -119,7 +119,7 @@ The JSON block below represents all supported configuration options in `plugin_s
     // SSL options for AMQP connection.
     // Optional. Default is unset (equivalent to leaving all sub-options as defaults).
     "amqp_ssl": {
-        // Peer validation level. Must be one of the following:
+        // Peer validation level. Must be one of the following (case-insensitive):
         // - `VERIFY_PEER`: require peer to provide valid identifying certificate.
         // - `ANONYMOUS_PEER`: no certificate nor cipher authorization required.
         // - `VERIFY_PEER_NAME`: require valid certificate and matching name.
@@ -195,7 +195,8 @@ The JSON block below represents all supported configuration options in `plugin_s
     // Options for AMQP sender.
     // Optional. Default is unset (equivalent to leaving all sub-options as defaults).
     "amqp_sender": {
-        // Message delivery policy to establish when opening a link. Must be one of the following:
+        // Message delivery policy to establish when opening a link.
+        // Must be one of the following (case-insensitive):
         // - `NONE`: No set policy. The application must settle messages itself according to its
         //           own policy.
         // - `AT_MOST_ONCE`: Outgoing messages are settled immediately by the link.
@@ -224,14 +225,15 @@ The JSON block below represents all supported configuration options in `plugin_s
             // Request an anonymous node on the remote peer.
             // Optional. Default is unset (equivalent to `true`).
             "anonymous": false,
-            // Control whether messages are browsed or consumed. Must be one of the following:
+            // Control whether messages are browsed or consumed.
+            // Must be one of the following (case-insensitive):
             // - `UNSPECIFIED`: The behavior is defined by the node.
             // - `COPY`: Once transferred, the message remains available to other links.
             // - `MOVE`: Once transferred, the message is unavailable to other links.
             // See https://qpid.apache.org/releases/qpid-proton-0.36.0/proton/c/api/group__terminus.html#gac6fb89a5fa96476db51b60f10dc785d0
             // Optional. Default is unset (equivalent to `MOVE`).
             "distribution_mode": "MOVE",
-            // Persistence of the source node. Must be one of the following:
+            // Persistence of the source node. Must be one of the following (case-insensitive):
             // - `NONDURABLE`: No persistence.
             // - `CONFIGURATION`: Only configuration is persisted.
             // - `UNSETTLED_STATE`: Configuration and delivery state are persisted.
@@ -242,7 +244,8 @@ The JSON block below represents all supported configuration options in `plugin_s
             // How long in milliseconds an orphaned source can persist. No timeout if unset.
             // Optional. Default is unset.
             "timeout": 604800000,
-            // When a source is considered orphaned. Must be one of the following:
+            // When a source is considered orphaned.
+            // Must be one of the following (case-insensitive):
             // - `LINK_CLOSE`: When the link is closed.
             // - `SESSION_CLOSE`: When the containing session is closed.
             // - `CONNECTION_CLOSE`: When the containing connection is closed.
@@ -264,7 +267,7 @@ The JSON block below represents all supported configuration options in `plugin_s
             // Request an anonymous node on the remote peer.
             // Optional. Default is unset (equivalent to `true`).
             "anonymous": false,
-            // Persistence of the target node. Must be one of the following:
+            // Persistence of the target node. Must be one of the following (case-insensitive):
             // - `NONDURABLE`: No persistence.
             // - `CONFIGURATION`: Only configuration is persisted.
             // - `UNSETTLED_STATE`: Configuration and delivery state are persisted.
@@ -276,7 +279,8 @@ The JSON block below represents all supported configuration options in `plugin_s
             // How long in milliseconds an orphaned target can persist. No timeout if unset.
             // Optional. Default is unset.
             "timeout": 604800000,
-            // When a target is considered orphaned. Must be one of the following:
+            // When a target is considered orphaned.
+            // Must be one of the following (case-insensitive):
             // - `LINK_CLOSE`: When the link is closed.
             // - `SESSION_CLOSE`: When the containing session is closed.
             // - `CONNECTION_CLOSE`: When the containing connection is closed.
