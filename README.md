@@ -205,7 +205,7 @@ The JSON block below represents all supported configuration options in `plugin_s
             // See https://qpid.apache.org/releases/qpid-proton-0.36.0/proton/c/api/group__terminus.html#gac6fb89a5fa96476db51b60f10dc785d0
             // Optional. Default is unset (equivalent to `MOVE`).
             "distribution_mode": "MOVE",
-            // Persistence of the source node.
+            // Persistence of the source node. Must be one of the following:
             // - `NONDURABLE`: No persistence.
             // - `CONFIGURATION`: Only configuration is persisted.
             // - `UNSETTLED_STATE`: Configuration and delivery state are persisted.
@@ -237,7 +237,7 @@ The JSON block below represents all supported configuration options in `plugin_s
             // Request an anonymous node on the remote peer.
             // Optional. Default is unset (equivalent to `true`).
             "anonymous": false,
-            // Persistence of the target node.
+            // Persistence of the target node. Must be one of the following:
             // - `NONDURABLE`: No persistence.
             // - `CONFIGURATION`: Only configuration is persisted.
             // - `UNSETTLED_STATE`: Configuration and delivery state are persisted.
