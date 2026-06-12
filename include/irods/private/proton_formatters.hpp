@@ -481,7 +481,7 @@ struct fmt::formatter<proton::delivery_mode> : fmt::formatter<enum proton::deliv
 	constexpr auto format(const proton::delivery_mode& _mode, FormatContext& _ctx) const -> decltype(_ctx.out())
 	{
 		return fmt::formatter<enum proton::delivery_mode::modes>::format(
-			// const_cast becasue we haven't vendored qpid-proton yet. This is a read-only operation, it's fine.
+			// const_cast because we haven't vendored qpid-proton yet. This is a read-only operation, it's fine.
 			// NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
 			static_cast<const enum proton::delivery_mode::modes&>(const_cast<proton::delivery_mode&>(_mode)),
 			_ctx);
@@ -791,11 +791,11 @@ namespace irods::plugin::rule_engine::audit_amqp
 	{
 		log_list_emplace(_log_kvs, "address", _source.address(), _key_prefix);
 		log_list_emplace(_log_kvs, "distribution_mode", _source.distribution_mode(), _key_prefix);
-		// const_cast becasue we haven't vendored qpid-proton yet. This is a read-only operation, it's fine.
+		// const_cast because we haven't vendored qpid-proton yet. This is a read-only operation, it's fine.
 		// NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
 		log_list_emplace(_log_kvs,
 		                 "durability_mode",
-		                 // const_cast becasue we haven't vendored qpid-proton yet. Read-only operation, it's fine.
+		                 // const_cast because we haven't vendored qpid-proton yet. Read-only operation, it's fine.
 		                 // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
 		                 const_cast<proton::source&>(_source).durability_mode(),
 		                 _key_prefix);
@@ -817,7 +817,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		log_list_emplace(_log_kvs, "address", _target.address(), _key_prefix);
 		log_list_emplace(_log_kvs,
 		                 "durability_mode",
-		                 // const_cast becasue we haven't vendored qpid-proton yet. Read-only operation, it's fine.
+		                 // const_cast because we haven't vendored qpid-proton yet. Read-only operation, it's fine.
 		                 // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
 		                 const_cast<proton::target&>(_target).durability_mode(),
 		                 _key_prefix);
@@ -917,7 +917,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		log_list_emplace(_log_kvs, "credit", _sender.credit(), _key_prefix);
 		log_list_emplace(_log_kvs,
 		                 "draining",
-		                 // const_cast becasue we haven't vendored qpid-proton yet. Read-only operation, it's fine.
+		                 // const_cast because we haven't vendored qpid-proton yet. Read-only operation, it's fine.
 		                 // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
 		                 const_cast<proton::sender&>(_sender).draining(),
 		                 _key_prefix);
