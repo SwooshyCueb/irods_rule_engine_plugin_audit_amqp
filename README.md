@@ -36,6 +36,9 @@ After installation, the plugin must be added to the `rule_engines` array in the 
 
 The JSON block below represents all supported configuration options in `plugin_specific_configuration`.
 
+> [!NOTE]
+> Starting with @VERSION@, we expose most of the Qpid Proton settings as configuration options prefixed with `amqp_` in the plugin configuration. In the interest of not making the plugin more complicated than it already is, most of these configuration options coorespond directly or almost directly with a Qpid Proton setting. If more insight is needed into a configuration option than is provided here, [Qpid Proton's C++ API documentation](https://qpid.apache.org/releases/qpid-proton-0.36.0/proton/cpp/api/annotated.html) may be helpful. 
+
 > [!IMPORTANT]
 > The comments in the following JSON block are present in this README for documentation puposes only. iRODS does not support comments in the server configuration file and will fail to load the configuration if any are present.
 
