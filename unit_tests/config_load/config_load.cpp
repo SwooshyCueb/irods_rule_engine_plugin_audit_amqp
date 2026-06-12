@@ -4734,7 +4734,7 @@ TEST_CASE("plugin configuration loading")
 		CHECK(plugin_config.amqp_config().is_initialized());
 		REQUIRE(plugin_config.amqp_config().sender_source_durability_mode().has_value());
 		REQUIRE(plugin_config.amqp_config().sender_source_durability_mode().value() ==
-		        proton::source::durability_mode::UNSETTLED_STATE);
+		        proton::source::durability_mode::UNSETTLED_STATE); // DELIVERIES is parsed as UNSETTLED_STATE
 	}
 
 	SECTION(fmt::format(FMT_COMPILE("{}:{}:{} bad_value"),
@@ -5614,7 +5614,7 @@ TEST_CASE("plugin configuration loading")
 		CHECK(plugin_config.amqp_config().is_initialized());
 		REQUIRE(plugin_config.amqp_config().sender_target_durability_mode().has_value());
 		REQUIRE(plugin_config.amqp_config().sender_target_durability_mode().value() ==
-		        proton::target::durability_mode::UNSETTLED_STATE);
+		        proton::target::durability_mode::UNSETTLED_STATE); // DELIVERIES is parsed as UNSETTLED_STATE
 	}
 
 	SECTION(fmt::format(FMT_COMPILE("{}:{}:{} bad_value"),
