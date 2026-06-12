@@ -140,7 +140,7 @@ def main():
     if options.test:
         if options.test in catch2_tests:
             python_tests = []
-            catch2_tests [options.text]
+            catch2_tests = [options.test]
         else:
             python_tests = [options.test]
             catch2_tests = []
