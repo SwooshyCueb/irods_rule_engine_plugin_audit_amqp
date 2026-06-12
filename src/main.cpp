@@ -389,7 +389,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			const auto err = audit_amqp_sender.send_message(json_obj, time_ms, getpid(), log_file_ofstream);
 			audit_amqp_sender.close();
 			if (!err.ok()) {
-				return err;
+				ret = err;
 			}
 		}
 		catch (const irods::exception& e) {
