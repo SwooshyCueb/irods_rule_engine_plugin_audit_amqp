@@ -304,21 +304,23 @@ namespace irods::plugin::rule_engine::audit_amqp
 			const std::string e_what = e.what();
 			log_exception(log_re::error, "Caught iRODS exception", e_what, _instance_name);
 			error_state =
-				ERROR(e.code(), fmt::format(FMT_COMPILE("Unhandled exception during plugin start: {}"), e_what));
+				ERROR(e.code(), fmt::format(FMT_COMPILE("Unhandled iRODS exception during plugin start: {}"), e_what));
 			return error_state;
 		}
 		catch (const nlohmann::json::exception& e) {
 			const std::string e_what = e.what();
 			log_exception(log_re::error, "Caught nlohmann-json exception", e_what, _instance_name);
-			error_state = ERROR(
-				SYS_LIBRARY_ERROR, fmt::format(FMT_COMPILE("Unhandled exception during plugin start: {}"), e_what));
+			error_state =
+				ERROR(SYS_LIBRARY_ERROR,
+				      fmt::format(FMT_COMPILE("Unhandled nlohmann-json exception during plugin start: {}"), e_what));
 			return error_state;
 		}
 		catch (const proton::error& e) {
 			const std::string e_what = e.what();
 			log_exception(log_re::error, "Caught qpid-proton exception", e_what, _instance_name);
-			error_state = ERROR(
-				SYS_LIBRARY_ERROR, fmt::format(FMT_COMPILE("Unhandled exception during plugin start: {}"), e_what));
+			error_state =
+				ERROR(SYS_LIBRARY_ERROR,
+				      fmt::format(FMT_COMPILE("Unhandled qpid-proton exception during plugin start: {}"), e_what));
 			return error_state;
 		}
 		catch (const std::exception& e) {
@@ -370,6 +372,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		}
 
 		nlohmann::json json_obj;
+		irods::error ret = SUCCESS();
 
 		try {
 			const std::uint64_t time_ms = ts_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
@@ -385,22 +388,25 @@ namespace irods::plugin::rule_engine::audit_amqp
 		catch (const irods::exception& e) {
 			const std::string e_what = e.what();
 			log_exception(log_re::error, "Caught iRODS exception", e_what, _instance_name);
-			return ERROR(e.code(), e_what);
+			ret = ERROR(e.code(), fmt::format(FMT_COMPILE("Unhandled iRODS exception during plugin stop: {}"), e_what));
 		}
 		catch (const nlohmann::json::exception& e) {
 			const std::string e_what = e.what();
 			log_exception(log_re::error, "Caught nlohmann-json exception", e_what, _instance_name);
-			return ERROR(SYS_LIBRARY_ERROR, e_what);
+			ret = ERROR(SYS_LIBRARY_ERROR,
+			            fmt::format(FMT_COMPILE("Unhandled nlohmann-json exception during plugin stop: {}"), e_what));
 		}
 		catch (const proton::error& e) {
 			const std::string e_what = e.what();
 			log_exception(log_re::error, "Caught qpid-proton exception", e_what, _instance_name);
-			return ERROR(SYS_LIBRARY_ERROR, e_what);
+			ret = ERROR(SYS_LIBRARY_ERROR,
+			            fmt::format(FMT_COMPILE("Unhandled qpid-proton exception during plugin stop: {}"), e_what));
 		}
 		catch (const std::exception& e) {
 			const std::string e_what = e.what();
 			log_exception(log_re::error, "Caught exception", e_what, _instance_name);
-			return ERROR(SYS_INTERNAL_ERR, e_what);
+			ret =
+				ERROR(SYS_INTERNAL_ERR, fmt::format(FMT_COMPILE("Unhandled exception during plugin stop: {}"), e_what));
 		}
 		catch (...) {
 			// clang-format off
@@ -410,7 +416,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 				{"log_message", "Caught unknown exception"}
 			});
 			// clang-format on
-			return ERROR(SYS_UNKNOWN_ERROR, "An unknown error occurred");
+			ret = ERROR(SYS_UNKNOWN_ERROR, "Unknown error during plugin stop.");
 		}
 
 		log_file_ofstream.close();
@@ -424,7 +430,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			// clang-format on
 		}
 
-		return SUCCESS();
+		return ret;
 	}
 
 	static auto rule_exists([[maybe_unused]] irods::default_re_ctx& _re_ctx, const std::string& _rn, bool& _ret)
@@ -605,7 +611,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 			const std::string e_what = e.what();
 			log_exception(log_re::error, "Caught iRODS exception", e_what, _instance_name, _rn);
 			if (audit_config.failsafe_mode() == plugin_config::failsafe_mode::BLOCK_OPERATION) {
-				return ERROR(e.code(), fmt::format(FMT_COMPILE("Unhandled exception during plugin setup: {}"), e_what));
+				return ERROR(
+					e.code(), fmt::format(FMT_COMPILE("Unhandled iRODS exception during exec_rule: {}"), e_what));
 			}
 		}
 		catch (const nlohmann::json::exception& e) {
@@ -613,15 +620,16 @@ namespace irods::plugin::rule_engine::audit_amqp
 			log_exception(log_re::error, "Caught nlohmann-json exception", e_what, _instance_name, _rn);
 			if (audit_config.failsafe_mode() == plugin_config::failsafe_mode::BLOCK_OPERATION) {
 				return ERROR(
-					SYS_LIBRARY_ERROR, fmt::format(FMT_COMPILE("Unhandled exception during plugin setup: {}"), e_what));
+					SYS_LIBRARY_ERROR,
+					fmt::format(FMT_COMPILE("Unhandled nlohmann-json exception during exec_rule: {}"), e_what));
 			}
 		}
 		catch (const proton::error& e) {
 			const std::string e_what = e.what();
 			log_exception(log_re::error, "Caught qpid-proton exception", e_what, _instance_name, _rn);
 			if (audit_config.failsafe_mode() == plugin_config::failsafe_mode::BLOCK_OPERATION) {
-				return ERROR(
-					SYS_LIBRARY_ERROR, fmt::format(FMT_COMPILE("Unhandled exception during plugin setup: {}"), e_what));
+				return ERROR(SYS_LIBRARY_ERROR,
+				             fmt::format(FMT_COMPILE("Unhandled qpid-proton exception during exec_rule: {}"), e_what));
 			}
 		}
 		catch (const std::exception& e) {
@@ -629,7 +637,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			log_exception(log_re::error, "Caught exception", e_what, _instance_name, _rn);
 			if (audit_config.failsafe_mode() == plugin_config::failsafe_mode::BLOCK_OPERATION) {
 				return ERROR(
-					SYS_INTERNAL_ERR, fmt::format(FMT_COMPILE("Unhandled exception during plugin setup: {}"), e_what));
+					SYS_INTERNAL_ERR, fmt::format(FMT_COMPILE("Unhandled exception during exec_rule: {}"), e_what));
 			}
 		}
 		catch (...) {
@@ -642,7 +650,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			});
 			// clang-format on
 			if (audit_config.failsafe_mode() == plugin_config::failsafe_mode::BLOCK_OPERATION) {
-				return ERROR(SYS_UNKNOWN_ERROR, "An unknown error occurred");
+				return ERROR(SYS_UNKNOWN_ERROR, "Unknown error during exec_rule.");
 			}
 		}
 
