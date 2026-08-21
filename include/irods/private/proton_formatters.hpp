@@ -872,10 +872,15 @@ namespace irods::plugin::rule_engine::audit_amqp
 		log_list_emplace(_log_kvs, "closed", _connection.closed(), _key_prefix);
 		log_list_emplace(_log_kvs, "virtual_host", _connection.virtual_host(), _key_prefix);
 		log_list_emplace(_log_kvs, "container_id", _connection.container_id(), _key_prefix);
-		log_list_emplace(_log_kvs, "user", _connection.user(), _key_prefix);
-		log_list_emplace(_log_kvs, "max_frame_size", _connection.max_frame_size(), _key_prefix);
-		log_list_emplace(_log_kvs, "max_sessions", _connection.max_sessions(), _key_prefix);
-		log_list_emplace(_log_kvs, "idle_timeout", _connection.idle_timeout(), _key_prefix);
+		if (_origin != proton_dump_origin::TRACKER) {
+			// These fields come from the connection object's internal transport object.
+			// Under certain circumstances, a tracker objects's connection objects's internal transport object may be
+			// uninitialized. Avoid making calls that would access it when the top-level object is a tracker.
+			log_list_emplace(_log_kvs, "user", _connection.user(), _key_prefix);
+			log_list_emplace(_log_kvs, "max_frame_size", _connection.max_frame_size(), _key_prefix);
+			log_list_emplace(_log_kvs, "max_sessions", _connection.max_sessions(), _key_prefix);
+			log_list_emplace(_log_kvs, "idle_timeout", _connection.idle_timeout(), _key_prefix);
+		}
 		log_list_emplace(_log_kvs, "reconnected", _connection.reconnected(), _key_prefix);
 		log_list_emplace(_log_kvs, "container::id", _connection.container().id(), _key_prefix);
 
@@ -887,8 +892,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 		                  fmt::format(FMT_COMPILE("{}desired_capabilities"), _key_prefix));
 		dump_proton_value(_log_kvs, _connection.properties(), fmt::format(FMT_COMPILE("{}properties"), _key_prefix));
 
-		// only skip transport if we started there
-		if (_origin != proton_dump_origin::TRANSPORT) {
+		// only skip transport if we started there or in a tracker (see the comment above)
+		if ((_origin != proton_dump_origin::TRANSPORT) && (_origin != proton_dump_origin::TRACKER)) {
 			dump_proton_object(
 				_log_kvs, _connection.transport(), fmt::format(FMT_COMPILE("{}transport::"), _key_prefix), _origin);
 		}
@@ -901,7 +906,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 			}
 		}
 
-		if (_connection.error()) {
+		// for the same reasons as above, skip accessing the error object if we started with a tracker
+		if ((_origin != proton_dump_origin::TRACKER) && _connection.error()) {
 			dump_proton_object(_log_kvs, _connection.error(), fmt::format(FMT_COMPILE("{}error::"), _key_prefix));
 		}
 	}
