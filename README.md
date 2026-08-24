@@ -174,11 +174,11 @@ The JSON block below represents all supported configuration options in `plugin_s
     // Optional. Default is unset.
     "amqp_connection_virtual_host": "localhost",
     // Timeout in milliseconds for establishing AMQP connection. 0 means no timeout.
-    // Optional. Default is 30000.
-    "amqp_connection_open_timeout": 30000,
+    // Optional. Default is 5000.
+    "amqp_connection_open_timeout": 5000,
     // Timeout in milliseconds for closing AMQP connection. 0 means no timeout.
-    // Optional. Default is 10000.
-    "amqp_connection_close_timeout": 10000,
+    // Optional. Default is 3000.
+    "amqp_connection_close_timeout": 3000,
     // Base value in milliseconds for reconnection delays.
     // Optional. Default is unset (equivalent to 10).
     "amqp_reconnect_base_delay": 100,
@@ -187,10 +187,10 @@ The JSON block below represents all supported configuration options in `plugin_s
     "amqp_reconnect_delay_multiplier": 1.25,
     // Maximum delay in milliseconds between successive connect attempts. Unlimited if unset.
     // Optional. Default is unset.
-    "amqp_reconnect_max_delay": 1800000,
+    "amqp_reconnect_max_delay": 10000,
     // Maximum number of reconnect attempts. 0 is equivalent to no limit.
     // Optional. Default is unset (equivalent to 0 or no limit).
-    "amqp_reconnect_max_attempts": 2048,
+    "amqp_reconnect_max_attempts": 15,
 
     // Options for AMQP sender.
     // Optional. Default is unset (equivalent to leaving all sub-options as defaults).
@@ -210,8 +210,8 @@ The JSON block below represents all supported configuration options in `plugin_s
         // Optional. Default is unset (equivalent to `true`).
         "auto_settle": true,
         // Timeout in milliseconds for closing AMQP sender. 0 means no timeout.
-        // Optional. Default is 30000.
-        "close_timeout": 30000,
+        // Optional. Default is 3000.
+        "close_timeout": 3000,
 
         // Options for source node.
         // Optional. Default is unset (equivalent to leaving all sub-options as defaults).
@@ -296,12 +296,12 @@ The JSON block below represents all supported configuration options in `plugin_s
     // `false`).
     "amqp_durable_messages": true,
     // Timeout in milliseconds for sending individual AMQP messages. 0 means no timeout.
-    // Optional. Default is 30000.
-    "amqp_message_send_timeout": 30000,
+    // Optional. Default is 5000.
+    "amqp_message_send_timeout": 5000,
 
     // Timeout in milliseconds for closing AMQP session. 0 means no timeout.
-    // Optional. Default is 10000.
-    "amqp_session_close_timeout": 10000
+    // Optional. Default is 3000.
+    "amqp_session_close_timeout": 3000
 }
 ```
 

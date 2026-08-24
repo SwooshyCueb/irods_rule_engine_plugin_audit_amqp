@@ -54,8 +54,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 			static constexpr const std::optional<std::uint16_t> connection_max_sessions = std::nullopt;
 			static constexpr const auto connection_idle_timeout = std::nullopt;
 			static constexpr const auto connection_virtual_host = std::nullopt;
-			static constexpr const std::chrono::milliseconds connection_open_timeout{30000};
-			static constexpr const std::chrono::milliseconds connection_close_timeout{10000};
+			static constexpr const std::chrono::milliseconds connection_open_timeout{5000};
+			static constexpr const std::chrono::milliseconds connection_close_timeout{3000};
 			static constexpr const auto reconnect_delay = std::nullopt;
 			static constexpr const std::optional<float> reconnect_delay_multiplier = std::nullopt;
 			static constexpr const auto reconnect_max_delay = std::nullopt;
@@ -73,7 +73,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 			static constexpr const std::optional<enum proton::delivery_mode::modes> sender_delivery_mode = std::nullopt;
 			static constexpr const std::optional<bool> sender_auto_settle = std::nullopt;
-			static constexpr const std::chrono::milliseconds sender_close_timeout{30000};
+			static constexpr const std::chrono::milliseconds sender_close_timeout{3000};
 
 			static constexpr const auto sender_source_address = std::nullopt;
 			static constexpr const std::optional<bool> sender_source_dynamic = std::nullopt;
@@ -92,9 +92,9 @@ namespace irods::plugin::rule_engine::audit_amqp
 			static constexpr const std::optional<enum proton::target::expiry_policy> sender_target_expiry_policy = std::nullopt;
 
 			static constexpr const std::optional<bool> durable_messages = true;
-			static constexpr const std::chrono::milliseconds message_send_timeout{30000};
+			static constexpr const std::chrono::milliseconds message_send_timeout{5000};
 
-			static constexpr const std::chrono::milliseconds session_close_timeout{10000};
+			static constexpr const std::chrono::milliseconds session_close_timeout{3000};
 		};
 
 		[[nodiscard]] irods::error initialize(const nlohmann::json& _plugin_specific_configuration,
