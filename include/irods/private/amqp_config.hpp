@@ -54,7 +54,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			static constexpr const std::optional<std::uint16_t> connection_max_sessions = std::nullopt;
 			static constexpr const auto connection_idle_timeout = std::nullopt;
 			static constexpr const auto connection_virtual_host = std::nullopt;
-			static constexpr const std::chrono::milliseconds connection_open_timeout{5000};
+			static constexpr const std::chrono::milliseconds connection_open_timeout{3000};
 			static constexpr const std::chrono::milliseconds connection_close_timeout{3000};
 			static constexpr const auto reconnect_delay = std::nullopt;
 			static constexpr const std::optional<float> reconnect_delay_multiplier = std::nullopt;
@@ -73,6 +73,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 			static constexpr const std::optional<enum proton::delivery_mode::modes> sender_delivery_mode = std::nullopt;
 			static constexpr const std::optional<bool> sender_auto_settle = std::nullopt;
+			static constexpr const std::chrono::milliseconds sender_open_timeout{3000};
 			static constexpr const std::chrono::milliseconds sender_close_timeout{3000};
 
 			static constexpr const auto sender_source_address = std::nullopt;
@@ -95,6 +96,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			static constexpr const std::chrono::milliseconds message_send_timeout{5000};
 
 			static constexpr const std::chrono::milliseconds session_close_timeout{3000};
+			static constexpr const std::chrono::milliseconds session_open_timeout{3000};
 		};
 
 		[[nodiscard]] irods::error initialize(const nlohmann::json& _plugin_specific_configuration,
@@ -138,6 +140,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 			sender_delivery_mode_ = std::nullopt;
 			sender_auto_settle_ = std::nullopt;
+			sender_open_timeout_ = std::chrono::milliseconds::zero();
 			sender_close_timeout_ = std::chrono::milliseconds::zero();
 
 			sender_source_address_ = std::nullopt;
@@ -158,6 +161,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			durable_messages_ = std::nullopt;
 			message_send_timeout_ = std::chrono::milliseconds::zero();
 
+			session_open_timeout_ = std::chrono::milliseconds::zero();
 			session_close_timeout_ = std::chrono::milliseconds::zero();
 		}
 
@@ -195,6 +199,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 			sender_delivery_mode_ = defaults::sender_delivery_mode;
 			sender_auto_settle_ = defaults::sender_auto_settle;
+			sender_open_timeout_ = defaults::sender_open_timeout;
 			sender_close_timeout_ = defaults::sender_close_timeout;
 
 			sender_source_address_ = defaults::sender_source_address;
@@ -215,6 +220,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 			durable_messages_ = defaults::durable_messages;
 			message_send_timeout_ = defaults::message_send_timeout;
 
+			session_open_timeout_ = defaults::session_open_timeout;
 			session_close_timeout_ = defaults::session_close_timeout;
 		}
 
@@ -246,6 +252,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		[[nodiscard]] constexpr const std::optional<bool>& sasl_allow_insecure() const { return sasl_allow_insecure_; }
 		[[nodiscard]] constexpr const std::optional<enum proton::delivery_mode::modes>& sender_delivery_mode() const { return sender_delivery_mode_; }
 		[[nodiscard]] constexpr const std::optional<bool>& sender_auto_settle() const { return sender_auto_settle_; }
+		[[nodiscard]] constexpr const std::chrono::milliseconds sender_open_timeout() const { return sender_open_timeout_; }
 		[[nodiscard]] constexpr const std::chrono::milliseconds sender_close_timeout() const { return sender_close_timeout_; }
 		[[nodiscard]] constexpr const std::optional<std::string>& sender_source_address() const { return sender_source_address_; }
 		[[nodiscard]] constexpr const std::optional<bool>& sender_source_dynamic() const { return sender_source_dynamic_; }
@@ -262,6 +269,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		[[nodiscard]] constexpr const std::optional<enum proton::target::expiry_policy>& sender_target_expiry_policy() const { return sender_target_expiry_policy_; }
 		[[nodiscard]] constexpr const std::optional<bool>& durable_messages() const { return durable_messages_; }
 		[[nodiscard]] constexpr const std::chrono::milliseconds message_send_timeout() const { return message_send_timeout_; }
+		[[nodiscard]] constexpr const std::chrono::milliseconds session_open_timeout() const { return session_open_timeout_; }
 		[[nodiscard]] constexpr const std::chrono::milliseconds session_close_timeout() const { return session_close_timeout_; }
 		// NOLINTEND(readability-const-return-type)
 
@@ -319,6 +327,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		static constexpr const char* const KW_SENDER = "amqp_sender";
 		static constexpr const char* const KW_LINK_DELIVERY_MODE = "delivery_mode";
 		static constexpr const char* const KW_LINK_AUTO_SETTLE = "auto_settle";
+		static constexpr const char* const KW_LINK_OPEN_TIMEOUT = "open_timeout";
 		static constexpr const char* const KW_LINK_CLOSE_TIMEOUT = "close_timeout";
 
 		static constexpr const char* const KW_LINK_SOURCE = "source";
@@ -334,6 +343,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		static constexpr const char* const KW_DURABLE_MESSAGES = "amqp_durable_messages";
 		static constexpr const char* const KW_MESSAGE_SEND_TIMEOUT = "amqp_message_send_timeout";
 
+		static constexpr const char* const KW_SESSION_OPEN_TIMEOUT = "amqp_session_open_timeout";
 		static constexpr const char* const KW_SESSION_CLOSE_TIMEOUT = "amqp_session_close_timeout";
 
 		static constexpr const char* const KW_DEPRECATED_OPTIONS = "amqp_options";
@@ -372,6 +382,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 
 		std::optional<enum proton::delivery_mode::modes> sender_delivery_mode_;
 		std::optional<bool> sender_auto_settle_;
+		std::chrono::milliseconds sender_open_timeout_;
 		std::chrono::milliseconds sender_close_timeout_;
 
 		std::optional<std::string> sender_source_address_;
@@ -392,6 +403,7 @@ namespace irods::plugin::rule_engine::audit_amqp
 		std::optional<bool> durable_messages_;
 		std::chrono::milliseconds message_send_timeout_;
 
+		std::chrono::milliseconds session_open_timeout_;
 		std::chrono::milliseconds session_close_timeout_;
 
 		static std::optional<amqp_config> default_instance_;

@@ -87,6 +87,8 @@ namespace irods::plugin::rule_engine::audit_amqp
 		std::optional<std::thread> proton_thread_;
 		std::mutex amqp_send_mutex_;
 		std::binary_semaphore connection_sem_;
+		std::binary_semaphore session_sem_;
+		std::binary_semaphore sender_sem_;
 
 		std::optional<proton::container> container_;
 		std::optional<proton::connection> connection_;

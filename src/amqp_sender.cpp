@@ -28,6 +28,7 @@
 #include <proton/sender.hpp>
 #include <proton/sender_options.hpp>
 #include <proton/session.hpp>
+#include <proton/session_options.hpp>
 #include <proton/timestamp.hpp>
 #include <proton/tracker.hpp>
 #include <proton/transport.hpp>
@@ -50,7 +51,7 @@
 
 namespace irods::plugin::rule_engine::audit_amqp
 {
-	amqp_sender::amqp_sender() : is_open_(false), connection_sem_(0) {}
+	amqp_sender::amqp_sender() : is_open_(false), connection_sem_(0), session_sem_(0), sender_sem_(0) {}
 
 	amqp_sender::~amqp_sender()
 	{
@@ -193,6 +194,36 @@ namespace irods::plugin::rule_engine::audit_amqp
 		}
 		else {
 			connection_sem_.acquire();
+		}
+		if (amqp_config_.session_open_timeout() > std::chrono::milliseconds::zero()) {
+			if (!session_sem_.try_acquire_for(amqp_config_.session_open_timeout())) {
+				// clang-format off
+				log_re::error({
+					{"rule_engine_plugin", rule_engine_name},
+					{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
+					{"log_message", "Reached timeout while opening AMQP session."}
+				});
+				// clang-format on
+				return ERROR(RE_RUNTIME_ERROR, "Reached timeout while opening AMQP session.");
+			}
+		}
+		else {
+			session_sem_.acquire();
+		}
+		if (amqp_config_.sender_open_timeout() > std::chrono::milliseconds::zero()) {
+			if (!session_sem_.try_acquire_for(amqp_config_.sender_open_timeout())) {
+				// clang-format off
+				log_re::error({
+					{"rule_engine_plugin", rule_engine_name},
+					{irods::KW_CFG_INSTANCE_NAME, re_instance_name_},
+					{"log_message", "Reached timeout while opening AMQP sender."}
+				});
+				// clang-format on
+				return ERROR(RE_RUNTIME_ERROR, "Reached timeout while opening AMQP sender.");
+			}
+		}
+		else {
+			session_sem_.acquire();
 		}
 
 		return SUCCESS();
@@ -552,11 +583,17 @@ namespace irods::plugin::rule_engine::audit_amqp
 		amqp_config_.configure_sender(sender_opts);
 
 		connection_ = _container.connect(amqp_config_.primary_endpoint(), conn_opts);
-		sender_ = connection_->open_sender(amqp_config_.path(), sender_opts);
-
-		is_open_ = true;
-
 		connection_sem_.release();
+
+		auto session = connection_->default_session();
+		if (session.uninitialized() || session.closed()) {
+			session.open(proton::session_options().handler(*this));
+		}
+		session_sem_.release();
+
+		sender_ = session.open_sender(amqp_config_.path(), sender_opts);
+		is_open_ = true;
+		sender_sem_.release();
 	}
 
 	void amqp_sender::on_tracker_reject([[maybe_unused]] proton::tracker& _tracker)

@@ -209,6 +209,9 @@ The JSON block below represents all supported configuration options in `plugin_s
         // Whether to automatically settle messages.
         // Optional. Default is unset (equivalent to `true`).
         "auto_settle": true,
+        // Timeout in milliseconds for opening AMQP sender. 0 means no timeout.
+        // Optional. Default is 3000.
+        "open_timeout": 3000,
         // Timeout in milliseconds for closing AMQP sender. 0 means no timeout.
         // Optional. Default is 3000.
         "close_timeout": 3000,
@@ -299,6 +302,9 @@ The JSON block below represents all supported configuration options in `plugin_s
     // Optional. Default is 5000.
     "amqp_message_send_timeout": 5000,
 
+    // Timeout in milliseconds for opening AMQP session. 0 means no timeout.
+    // Optional. Default is 3000.
+    "amqp_session_open_timeout": 3000
     // Timeout in milliseconds for closing AMQP session. 0 means no timeout.
     // Optional. Default is 3000.
     "amqp_session_close_timeout": 3000

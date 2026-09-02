@@ -101,6 +101,7 @@ const nlohmann::json server_config_init = {
 					{audit_amqp::amqp_config::KW_SENDER, {
 						{audit_amqp::amqp_config::KW_LINK_DELIVERY_MODE, nullptr},
 						{audit_amqp::amqp_config::KW_LINK_AUTO_SETTLE, nullptr},
+						{audit_amqp::amqp_config::KW_LINK_OPEN_TIMEOUT, nullptr},
 						{audit_amqp::amqp_config::KW_LINK_CLOSE_TIMEOUT, nullptr},
 						{audit_amqp::amqp_config::KW_LINK_SOURCE, {
 							{audit_amqp::amqp_config::KW_TERMINUS_ADDRESS, nullptr},
@@ -122,6 +123,7 @@ const nlohmann::json server_config_init = {
 					}},
 					{audit_amqp::amqp_config::KW_DURABLE_MESSAGES, nullptr},
 					{audit_amqp::amqp_config::KW_MESSAGE_SEND_TIMEOUT, nullptr},
+					{audit_amqp::amqp_config::KW_SESSION_OPEN_TIMEOUT, nullptr},
 					{audit_amqp::amqp_config::KW_SESSION_CLOSE_TIMEOUT, nullptr},
 				}},
 			},
@@ -3698,6 +3700,8 @@ TEST_CASE("basic configuration loading")
 		      audit_amqp::amqp_config::defaults::sender_delivery_mode);
 		CHECK(plugin_config.amqp_config().sender_auto_settle() ==
 		      audit_amqp::amqp_config::defaults::sender_auto_settle);
+		CHECK(plugin_config.amqp_config().sender_open_timeout() ==
+		      audit_amqp::amqp_config::defaults::sender_open_timeout);
 		CHECK(plugin_config.amqp_config().sender_close_timeout() ==
 		      audit_amqp::amqp_config::defaults::sender_close_timeout);
 		CHECK(plugin_config.amqp_config().sender_source_address() ==
@@ -3742,6 +3746,8 @@ TEST_CASE("basic configuration loading")
 		      audit_amqp::amqp_config::defaults::sender_delivery_mode);
 		CHECK(plugin_config.amqp_config().sender_auto_settle() ==
 		      audit_amqp::amqp_config::defaults::sender_auto_settle);
+		CHECK(plugin_config.amqp_config().sender_open_timeout() ==
+		      audit_amqp::amqp_config::defaults::sender_open_timeout);
 		CHECK(plugin_config.amqp_config().sender_close_timeout() ==
 		      audit_amqp::amqp_config::defaults::sender_close_timeout);
 		CHECK(plugin_config.amqp_config().sender_source_address() ==
@@ -3786,6 +3792,8 @@ TEST_CASE("basic configuration loading")
 		      audit_amqp::amqp_config::defaults::sender_delivery_mode);
 		CHECK(plugin_config.amqp_config().sender_auto_settle() ==
 		      audit_amqp::amqp_config::defaults::sender_auto_settle);
+		CHECK(plugin_config.amqp_config().sender_open_timeout() ==
+		      audit_amqp::amqp_config::defaults::sender_open_timeout);
 		CHECK(plugin_config.amqp_config().sender_close_timeout() ==
 		      audit_amqp::amqp_config::defaults::sender_close_timeout);
 		CHECK(plugin_config.amqp_config().sender_source_address() ==
@@ -4052,6 +4060,117 @@ TEST_CASE("basic configuration loading")
 		CHECK(plugin_config.amqp_config().is_initialized());
 		REQUIRE(plugin_config.amqp_config().sender_auto_settle().has_value());
 		REQUIRE_FALSE(plugin_config.amqp_config().sender_auto_settle().value());
+	}
+
+		SECTION(fmt::format(FMT_COMPILE("{}:{} absent"),
+	                    audit_amqp::amqp_config::KW_SENDER,
+	                    audit_amqp::amqp_config::KW_LINK_OPEN_TIMEOUT))
+	{
+		auto& sender = psc_json[audit_amqp::amqp_config::KW_SENDER];
+		sender.erase(sender.find(audit_amqp::amqp_config::KW_LINK_OPEN_TIMEOUT));
+		INFO("server config: " << server_config.dump(2));
+		irods::server_properties::instance().set_configuration(server_config);
+		const irods::error err = plugin_config.initialize(re_instance_name);
+		CHECK(err.ok());
+		CHECK(plugin_config.is_configured());
+		CHECK_FALSE(plugin_config.is_old_config());
+		CHECK(plugin_config.amqp_config().is_initialized());
+		REQUIRE(plugin_config.amqp_config().sender_open_timeout() ==
+		        audit_amqp::amqp_config::defaults::sender_open_timeout);
+	}
+
+	SECTION(fmt::format(
+		FMT_COMPILE("{}:{} null"), audit_amqp::amqp_config::KW_SENDER, audit_amqp::amqp_config::KW_LINK_OPEN_TIMEOUT))
+	{
+		// clang-format off
+		psc_json[audit_amqp::amqp_config::KW_SENDER]
+		        [audit_amqp::amqp_config::KW_LINK_OPEN_TIMEOUT]
+		        = nullptr;
+		// clang-format on
+		INFO("server config: " << server_config.dump(2));
+		irods::server_properties::instance().set_configuration(server_config);
+		const irods::error err = plugin_config.initialize(re_instance_name);
+		CHECK(err.ok());
+		CHECK(plugin_config.is_configured());
+		CHECK_FALSE(plugin_config.is_old_config());
+		CHECK(plugin_config.amqp_config().is_initialized());
+		REQUIRE(plugin_config.amqp_config().sender_open_timeout() == std::chrono::milliseconds(0));
+	}
+
+	SECTION(fmt::format(FMT_COMPILE("{}:{} bad_type"),
+	                    audit_amqp::amqp_config::KW_SENDER,
+	                    audit_amqp::amqp_config::KW_LINK_OPEN_TIMEOUT))
+	{
+		// clang-format off
+		psc_json[audit_amqp::amqp_config::KW_SENDER]
+		        [audit_amqp::amqp_config::KW_LINK_OPEN_TIMEOUT]
+		        = "1234";
+		// clang-format on
+		INFO("server config: " << server_config.dump(2));
+		irods::server_properties::instance().set_configuration(server_config);
+		const irods::error err = plugin_config.initialize(re_instance_name);
+		CHECK_FALSE(err.ok());
+		CHECK(err.code() == KEY_TYPE_MISMATCH);
+		CHECK_FALSE(plugin_config.is_configured());
+		CHECK_FALSE(plugin_config.is_old_config());
+		CHECK_FALSE(plugin_config.amqp_config().is_initialized());
+	}
+
+	SECTION(fmt::format(FMT_COMPILE("{}:{} populated"),
+	                    audit_amqp::amqp_config::KW_SENDER,
+	                    audit_amqp::amqp_config::KW_LINK_OPEN_TIMEOUT))
+	{
+		// clang-format off
+		psc_json[audit_amqp::amqp_config::KW_SENDER]
+		        [audit_amqp::amqp_config::KW_LINK_OPEN_TIMEOUT]
+		        = 600;
+		// clang-format on
+		INFO("server config: " << server_config.dump(2));
+		irods::server_properties::instance().set_configuration(server_config);
+		const irods::error err = plugin_config.initialize(re_instance_name);
+		CHECK(err.ok());
+		CHECK(plugin_config.is_configured());
+		CHECK_FALSE(plugin_config.is_old_config());
+		CHECK(plugin_config.amqp_config().is_initialized());
+		REQUIRE(plugin_config.amqp_config().sender_open_timeout() == std::chrono::milliseconds(600));
+	}
+
+	SECTION(fmt::format(FMT_COMPILE("{}:{} below_range"),
+	                    audit_amqp::amqp_config::KW_SENDER,
+	                    audit_amqp::amqp_config::KW_LINK_OPEN_TIMEOUT))
+	{
+		// clang-format off
+		psc_json[audit_amqp::amqp_config::KW_SENDER]
+		        [audit_amqp::amqp_config::KW_LINK_OPEN_TIMEOUT]
+		        = -10;
+		// clang-format on
+		INFO("server config: " << server_config.dump(2));
+		irods::server_properties::instance().set_configuration(server_config);
+		const irods::error err = plugin_config.initialize(re_instance_name);
+		CHECK_FALSE(err.ok());
+		CHECK(err.code() == SYS_CONFIG_FILE_ERR);
+		CHECK_FALSE(plugin_config.is_configured());
+		CHECK_FALSE(plugin_config.is_old_config());
+		CHECK_FALSE(plugin_config.amqp_config().is_initialized());
+	}
+
+	SECTION(fmt::format(FMT_COMPILE("{}:{} above_range"),
+	                    audit_amqp::amqp_config::KW_SENDER,
+	                    audit_amqp::amqp_config::KW_LINK_OPEN_TIMEOUT))
+	{
+		// clang-format off
+		psc_json[audit_amqp::amqp_config::KW_SENDER]
+		        [audit_amqp::amqp_config::KW_LINK_OPEN_TIMEOUT]
+		        = too_big_for_ms;
+		// clang-format on
+		INFO("server config: " << server_config.dump(2));
+		irods::server_properties::instance().set_configuration(server_config);
+		const irods::error err = plugin_config.initialize(re_instance_name);
+		CHECK_FALSE(err.ok());
+		CHECK(err.code() == SYS_CONFIG_FILE_ERR);
+		CHECK_FALSE(plugin_config.is_configured());
+		CHECK_FALSE(plugin_config.is_old_config());
+		CHECK_FALSE(plugin_config.amqp_config().is_initialized());
 	}
 
 	SECTION(fmt::format(FMT_COMPILE("{}:{} absent"),
@@ -6199,6 +6318,85 @@ TEST_CASE("basic configuration loading")
 	SECTION(fmt::format(FMT_COMPILE("{} above_range"), audit_amqp::amqp_config::KW_MESSAGE_SEND_TIMEOUT))
 	{
 		psc_json[audit_amqp::amqp_config::KW_MESSAGE_SEND_TIMEOUT] = too_big_for_ms;
+		INFO("server config: " << server_config.dump(2));
+		irods::server_properties::instance().set_configuration(server_config);
+		const irods::error err = plugin_config.initialize(re_instance_name);
+		CHECK_FALSE(err.ok());
+		CHECK(err.code() == SYS_CONFIG_FILE_ERR);
+		CHECK_FALSE(plugin_config.is_configured());
+		CHECK_FALSE(plugin_config.is_old_config());
+		CHECK_FALSE(plugin_config.amqp_config().is_initialized());
+	}
+
+	SECTION(fmt::format(FMT_COMPILE("{} absent"), audit_amqp::amqp_config::KW_SESSION_OPEN_TIMEOUT))
+	{
+		psc_json.erase(psc_json.find(audit_amqp::amqp_config::KW_SESSION_OPEN_TIMEOUT));
+		INFO("server config: " << server_config.dump(2));
+		irods::server_properties::instance().set_configuration(server_config);
+		const irods::error err = plugin_config.initialize(re_instance_name);
+		CHECK(err.ok());
+		CHECK(plugin_config.is_configured());
+		CHECK_FALSE(plugin_config.is_old_config());
+		CHECK(plugin_config.amqp_config().is_initialized());
+		REQUIRE(plugin_config.amqp_config().session_open_timeout() ==
+		        audit_amqp::amqp_config::defaults::session_open_timeout);
+	}
+
+	SECTION(fmt::format(FMT_COMPILE("{} null"), audit_amqp::amqp_config::KW_SESSION_OPEN_TIMEOUT))
+	{
+		psc_json[audit_amqp::amqp_config::KW_SESSION_OPEN_TIMEOUT] = nullptr;
+		INFO("server config: " << server_config.dump(2));
+		irods::server_properties::instance().set_configuration(server_config);
+		const irods::error err = plugin_config.initialize(re_instance_name);
+		CHECK(err.ok());
+		CHECK(plugin_config.is_configured());
+		CHECK_FALSE(plugin_config.is_old_config());
+		CHECK(plugin_config.amqp_config().is_initialized());
+		REQUIRE(plugin_config.amqp_config().session_open_timeout() == std::chrono::milliseconds(0));
+	}
+
+	SECTION(fmt::format(FMT_COMPILE("{} bad_type"), audit_amqp::amqp_config::KW_SESSION_OPEN_TIMEOUT))
+	{
+		psc_json[audit_amqp::amqp_config::KW_SESSION_OPEN_TIMEOUT] = "bad type yay";
+		INFO("server config: " << server_config.dump(2));
+		irods::server_properties::instance().set_configuration(server_config);
+		const irods::error err = plugin_config.initialize(re_instance_name);
+		CHECK_FALSE(err.ok());
+		CHECK(err.code() == KEY_TYPE_MISMATCH);
+		CHECK_FALSE(plugin_config.is_configured());
+		CHECK_FALSE(plugin_config.is_old_config());
+		CHECK_FALSE(plugin_config.amqp_config().is_initialized());
+	}
+
+	SECTION(fmt::format(FMT_COMPILE("{} populated"), audit_amqp::amqp_config::KW_SESSION_OPEN_TIMEOUT))
+	{
+		psc_json[audit_amqp::amqp_config::KW_SESSION_OPEN_TIMEOUT] = 600;
+		INFO("server config: " << server_config.dump(2));
+		irods::server_properties::instance().set_configuration(server_config);
+		const irods::error err = plugin_config.initialize(re_instance_name);
+		CHECK(err.ok());
+		CHECK(plugin_config.is_configured());
+		CHECK_FALSE(plugin_config.is_old_config());
+		CHECK(plugin_config.amqp_config().is_initialized());
+		REQUIRE(plugin_config.amqp_config().session_open_timeout() == std::chrono::milliseconds(600));
+	}
+
+	SECTION(fmt::format(FMT_COMPILE("{} below_range"), audit_amqp::amqp_config::KW_SESSION_OPEN_TIMEOUT))
+	{
+		psc_json[audit_amqp::amqp_config::KW_SESSION_OPEN_TIMEOUT] = -10;
+		INFO("server config: " << server_config.dump(2));
+		irods::server_properties::instance().set_configuration(server_config);
+		const irods::error err = plugin_config.initialize(re_instance_name);
+		CHECK_FALSE(err.ok());
+		CHECK(err.code() == SYS_CONFIG_FILE_ERR);
+		CHECK_FALSE(plugin_config.is_configured());
+		CHECK_FALSE(plugin_config.is_old_config());
+		CHECK_FALSE(plugin_config.amqp_config().is_initialized());
+	}
+
+	SECTION(fmt::format(FMT_COMPILE("{} above_range"), audit_amqp::amqp_config::KW_SESSION_OPEN_TIMEOUT))
+	{
+		psc_json[audit_amqp::amqp_config::KW_SESSION_OPEN_TIMEOUT] = too_big_for_ms;
 		INFO("server config: " << server_config.dump(2));
 		irods::server_properties::instance().set_configuration(server_config);
 		const irods::error err = plugin_config.initialize(re_instance_name);
